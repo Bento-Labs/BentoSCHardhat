@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { IOracle } from "./IOracle.sol";
+import { IOracle } from "./interfaces/IOracle.sol";
 import { AggregatorV3Interface } from "./interfaces/chainlink/AggregatorV3Interface.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";

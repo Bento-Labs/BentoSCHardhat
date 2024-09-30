@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 
 contract UpgradeabilityProxy {
-  using SafeMath for uint256;
 
   bytes32 private constant proxyOwnerPosition = keccak256('proxy.owner');
   bytes32 private constant newProxyOwnerPosition = keccak256('proxy.newOwner');
@@ -120,7 +118,7 @@ contract UpgradeabilityProxy {
     assembly {
       sstore(position, _newImplementation)
     }
-    uint256 newTimelock = block.timestamp.add(timelockPeriod);
+    uint256 newTimelock = block.timestamp + timelockPeriod;
     _setTimelock(newTimelock);
   }
 

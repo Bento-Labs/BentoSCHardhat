@@ -8,6 +8,8 @@ pragma solidity ^0.8.0;
  */
 
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { StableMath } from "../utils/StableMath.sol";
 
 import { IOracle } from "../interfaces/IOracle.sol";
 import "./VaultStorage.sol";
@@ -19,17 +21,28 @@ contract VaultAdmin is VaultStorage {
     event AssetAdded(address indexed asset, uint8 decimals, uint8 weight);
     event AssetRemoved(address indexed asset);
     event AssetChanged(address indexed asset, uint8 decimals, uint8 weight);
+    event OracleRouterUpdated(address indexed oracleRouter);
+    event BentoUSDUpdated(address indexed bentoUSD);
+    event GovernorUpdated(address indexed governor);
+    event AssetWeightChanged(address indexed asset, uint8 oldWeight, uint8 newWeight);
+
+
     /***************************************
                  Configuration
     ****************************************/
 
+    modifier onlyGovernor() {
+        require(msg.sender == governor, "Only governor can call this function");
+        _;
+    }
+
     /**
      * @notice Set address of price provider.
-     * @param _priceProvider Address of price provider
+     * @param _oracleRouter Address of price provider
      */
-    function setPriceProvider(address _priceProvider) external onlyGovernor {
-        priceProvider = _priceProvider;
-        emit PriceProviderUpdated(_priceProvider);
+    function setOracleRouter(address _oracleRouter) external onlyGovernor {
+        oracleRouter = _oracleRouter;
+        emit OracleRouterUpdated(_oracleRouter);
     }
 
     function setBentoUSD(address _bentoUSD) external onlyGovernor {
@@ -85,7 +98,7 @@ contract VaultAdmin is VaultStorage {
     *  _newWeight: the new weight of the asset
     */
     function _changeAssetWeight(address _asset, uint8 _oldWeight, uint8 _newWeight) internal {
-        totalWeight = totalWeight.sub(_oldWeight).add(_newWeight);
+        totalWeight = totalWeight + _newWeight - _oldWeight;
         assets[_asset].weight = _newWeight;
         emit AssetWeightChanged(_asset, _oldWeight, _newWeight);
     }

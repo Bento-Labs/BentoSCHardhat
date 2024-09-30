@@ -10,45 +10,44 @@ pragma solidity ^0.8.0;
  */
 
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { StableMath } from "../utils/StableMath.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
 
-import "./VaultInitializer.sol";
+import { VaultAdmin } from "./VaultAdmin.sol";
+import { BentoUSD } from "../BentoUSD.sol";
 
-contract VaultCore is VaultInitializer {
+contract VaultCore is VaultAdmin {
     using SafeERC20 for IERC20;
     using StableMath for uint256;
-
     uint256 public constant deviationTolerance = 1; // in percentage
-
-    address public oracleRouter;
 
     event SwapResult(address inputAsset, address outputAsset, address router, uint256 amount);
 
-    function setOracleRouter(address _oracleRouter) external onlyOwner {
-        oracleRouter = _oracleRouter;
-    }
+    error SwapFailed(string reason);
 
     /**
      * @notice Deposit a supported asset and mint BentoUSD.
      * @param _asset Address of the asset being deposited
      * @param _amount Amount of the asset being deposited
-     * @param _minimumOusdAmount Minimum OTokens to mint
+     * @param _minimumBentoUSDAmount Minimum BentoUSD to mint
      */
     function mint(
         address _asset,
         uint256 _amount,
-        address _routers,
-        uint256 _minimumBentoUSDAmount
-    ) external nonReentrant {
-        _mint(_asset, _amount, _minimumBentoUSDAmount);
+        uint256 _minimumBentoUSDAmount,
+        address[] calldata _routers,
+        bytes[] calldata _routerData
+    ) external {
+        _mint(_asset, _amount, _minimumBentoUSDAmount, _routers, _routerData);
     }
 
     function _mint(
         address _asset,
         uint256 _amount,
         uint256 _minimumBentoUSDAmount,
+        address[] calldata _routers,
         bytes[] calldata _routerData
     ) internal virtual {
         require(assets[_asset].isSupported, "Asset is not supported");
@@ -65,12 +64,12 @@ contract VaultCore is VaultInitializer {
         for (uint256 i = 0; i < _allAssetsLength; i++) {
             address assetAddress = allAssets[i];
             // we only trade into assets that are not the asset we are depositing
-            if (assetAddress !== _asset) {
+            if (assetAddress != _asset) {
                 Asset memory asset = assets[assetAddress];
                 // get the balance of the asset before the trade
                 uint256 balanceBefore = IERC20(assetAddress).balanceOf(address(this));
                 // get asset price from oracle
-                uint256 assetPrice = IOracle(asset.oracle).price(assetAddress);
+                uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
                 if (assetPrice < 1e18) {
                     assetPrice = 1e18;
                 }
@@ -81,7 +80,8 @@ contract VaultCore is VaultInitializer {
                 uint256 outputAmount = balanceAfter - balanceBefore;
                 emit SwapResult(_asset, assetAddress, _routers[i], outputAmount);
                 uint256 expectedOutputAmount = _amount * asset.weight / _totalWeight;
-                uint256 deviationPercentage = (expectedOutputAmount - outputAmount).abs() * 100 / expectedOutputAmount;
+                uint256 deviation = (expectedOutputAmount > outputAmount) ? expectedOutputAmount - outputAmount : outputAmount - expectedOutputAmount;
+                uint256 deviationPercentage = deviation * 100 / expectedOutputAmount;
                 require(deviationPercentage < deviationTolerance, "VaultCore: deviation from desired weights too high");
                 totalValueOfBasket += outputAmount * assetPrice / 1e18;
             } else {
@@ -91,9 +91,7 @@ contract VaultCore is VaultInitializer {
         }
 
         require(totalValueOfBasket > _minimumBentoUSDAmount, "VaultCore: slippage or price deviation too high");
-        bentoUSD.mint(msg.sender, totalValueOfBasket);
-
-        emit Mint(msg.sender, totalValueOfBasket);
+        BentoUSD(bentoUSD).mint(msg.sender, totalValueOfBasket);
     }
 
     function mintBasket(uint256 _amount, uint256 _minimumBentoUSDAmount) external {
@@ -109,8 +107,7 @@ contract VaultCore is VaultInitializer {
             totalValueOfBasket += amountToDeposit * assetPrice / 1e18;
         }
         require(totalValueOfBasket > _minimumBentoUSDAmount, "VaultCore: price deviation too high");
-        bentoUSD.mint(msg.sender, totalValueOfBasket);
-        emit Mint(msg.sender, totalValueOfBasket);
+        BentoUSD(bentoUSD).mint(msg.sender, totalValueOfBasket);
     }
 
     function _swap(
@@ -123,6 +120,5 @@ contract VaultCore is VaultInitializer {
             if (_data.length > 0) revert SwapFailed(string(_data));
             else revert SwapFailed("Unknown reason");
         }
-        return _data;
-    };
+    }
 }
