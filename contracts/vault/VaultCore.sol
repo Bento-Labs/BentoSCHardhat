@@ -13,8 +13,6 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 import { StableMath } from "../utils/StableMath.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
-import { IGetExchangeRateToken } from "../interfaces/IGetExchangeRateToken.sol";
-import { IDripper } from "../interfaces/IDripper.sol";
 
 import "./VaultInitializer.sol";
 
@@ -24,7 +22,13 @@ contract VaultCore is VaultInitializer {
 
     uint256 public constant deviationTolerance = 1; // in percentage
 
-    event Swap(address inputAsset, address outputAsset, address router, uint256 amount);
+    address public oracleRouter;
+
+    event SwapResult(address inputAsset, address outputAsset, address router, uint256 amount);
+
+    function setOracleRouter(address _oracleRouter) external onlyOwner {
+        oracleRouter = _oracleRouter;
+    }
 
     /**
      * @notice Deposit a supported asset and mint BentoUSD.
@@ -66,7 +70,7 @@ contract VaultCore is VaultInitializer {
                 // get the balance of the asset before the trade
                 uint256 balanceBefore = IERC20(assetAddress).balanceOf(address(this));
                 // get asset price from oracle
-                uint256 assetPrice = IOracle(asset.oracle).getAssetPrice(assetAddress);
+                uint256 assetPrice = IOracle(asset.oracle).price(assetAddress);
                 if (assetPrice < 1e18) {
                     assetPrice = 1e18;
                 }
@@ -75,13 +79,13 @@ contract VaultCore is VaultInitializer {
                 uint256 balanceAfter = IERC20(assetAddress).balanceOf(address(this));
                 // get the amount of asset that is not in the balance after the trade
                 uint256 outputAmount = balanceAfter - balanceBefore;
-                emit Swap(_asset, assetAddress, _routers[i], outputAmount);
+                emit SwapResult(_asset, assetAddress, _routers[i], outputAmount);
                 uint256 expectedOutputAmount = _amount * asset.weight / _totalWeight;
                 uint256 deviationPercentage = (expectedOutputAmount - outputAmount).abs() * 100 / expectedOutputAmount;
                 require(deviationPercentage < deviationTolerance, "VaultCore: deviation from desired weights too high");
                 totalValueOfBasket += outputAmount * assetPrice / 1e18;
             } else {
-                uint256 assetPrice = IOracle(asset.oracle).getAssetPrice(assetAddress);
+                uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
                 totalValueOfBasket += _amount * assetPrice / 1e18;
             }
         }
@@ -98,7 +102,7 @@ contract VaultCore is VaultInitializer {
             address assetAddress = allAssets[i];
             uint256 amountToDeposit = _amount * assets[assetAddress].weight / totalWeight;
             
-            uint256 assetPrice = IOracle(asset.oracle).getAssetPrice(assetAddress);
+            uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
             if (assetPrice < 1e18) {
                 assetPrice = 1e18;
             }
