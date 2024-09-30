@@ -13,11 +13,10 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 import { IStrategy } from "../interfaces/IStrategy.sol";
 import { Governable } from "../governance/Governable.sol";
-import { OUSD } from "../token/OUSD.sol";
 import { Initializable } from "../utils/Initializable.sol";
 import "../utils/Helpers.sol";
 
-contract VaultStorage is Initializable, Governable {
+contract VaultStorage is Initializable {
     using SafeERC20 for IERC20;
 
     // Changed to fit into a single storage slot so the decimals needs to be recached
@@ -38,24 +37,9 @@ contract VaultStorage is Initializable, Governable {
     // slither-disable-next-line uninitialized-state
     address[] internal allAssets;
 
-    /// @notice pause operations that change the OToken supply.
-    /// eg mint, redeem, allocate, mint/burn for strategy
-    bool public capitalPaused = true;
-    /// @notice Redemption fee in basis points. eg 50 = 0.5%
-    uint256 public redeemFeeBps;
-    /// @notice Percentage of assets to keep in Vault to handle (most) withdrawals. 100% = 1e18.
-    uint256 public vaultBuffer;
-
     /// @dev Address of the bentoToken. eg bentoUSD .
     // slither-disable-next-line uninitialized-state
     BentoUSD internal bentoUSD;
-
-    /// @notice Mapping of asset address to the Strategy that they should automatically
-    // be allocated to
-    // slither-disable-next-line uninitialized-state
-    mapping(address => address) public assetDefaultStrategies;
-
-    /// Withdrawal Queue Storage /////
 
 
 }
