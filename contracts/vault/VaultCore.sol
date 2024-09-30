@@ -24,6 +24,8 @@ contract VaultCore is VaultInitializer {
 
     uint256 public constant deviationTolerance = 1; // in percentage
 
+    event Swap(address inputAsset, address outputAsset, address router, uint256 amount);
+
     /**
      * @notice Deposit a supported asset and mint BentoUSD.
      * @param _asset Address of the asset being deposited
@@ -33,7 +35,7 @@ contract VaultCore is VaultInitializer {
     function mint(
         address _asset,
         uint256 _amount,
-        address _router,
+        address _routers,
         uint256 _minimumBentoUSDAmount
     ) external nonReentrant {
         _mint(_asset, _amount, _minimumBentoUSDAmount);
@@ -68,11 +70,12 @@ contract VaultCore is VaultInitializer {
                 if (assetPrice < 1e18) {
                     assetPrice = 1e18;
                 }
-                _swap(_router, _routerData[i]);
+                _swap(_routers[i], _routerData[i]);
                 // get the balance of the asset after the trade
                 uint256 balanceAfter = IERC20(assetAddress).balanceOf(address(this));
                 // get the amount of asset that is not in the balance after the trade
                 uint256 outputAmount = balanceAfter - balanceBefore;
+                emit Swap(_asset, assetAddress, _routers[i], outputAmount);
                 uint256 expectedOutputAmount = _amount * asset.weight / _totalWeight;
                 uint256 deviationPercentage = (expectedOutputAmount - outputAmount).abs() * 100 / expectedOutputAmount;
                 require(deviationPercentage < deviationTolerance, "VaultCore: deviation from desired weights too high");
