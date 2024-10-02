@@ -1,56 +1,22 @@
-function getSwapTx(from, to, inToken, out, amount, slippage) {
-    const tokens = process.env.ONEINCH_API_KEYS.split(",");
-    const headers = {
-      headers: {
-        Authorization: `Bearer ${tokens[getRandomInt(tokens.length)]}`,
-        accept: "application/json",
-      },
-    };
-    const swpParams = {
-      src: `0x${inToken}`,
-      dst: `0x${out}`,
-      amount: amount,
-      from: `0x${from}`,
-      receiver: `0x${to}`,
-      slippage: Number(slippage) / 10000,
-      disableEstimate: true,
-      allowPartialFill: false,
-    };
+/* Copyright (C) 2023 Galactica Network. This file is part of zkKYC. zkKYC is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. zkKYC is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>. */
+import hre from 'hardhat';
+
+
+/**
+ * Script to deploy the example DApp, a smart contract requiring zkKYC to issue a verification SBT.
+ */
+async function main() {
+
+    const [deployer] = await hre.ethers.getSigners();
+
+    const from = deployer.address;
+
   
-    const url = apiRequestUrl("/swap", swpParams);
-    return fetch(url, headers);
-  }
-  
-  function apiRequestUrl(methodName, queryParams) {
-    const chainId = 1;
-    const apiBaseUrl = "https://api.1inch.dev/swap/v5.2/" + chainId;
-  
-    return (
-      apiBaseUrl + methodName + "?" + new URLSearchParams(queryParams).toString()
-    );
-  }
-  
-  function getRandomInt(max) {
-    return Math.floor(Math.random() * max);
-  }
-  
-  function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-  
-  async function main() {
-    const from = BigInt(process.argv[2]).toString(16);
-    const to = BigInt(process.argv[3]).toString(16);
-    const inToken = BigInt(process.argv[4]).toString(16);
-    const outToken = BigInt(process.argv[5]).toString(16);
-    const amount = process.argv[6];
-    const slippage = process.argv[7];
-    await sleep(getRandomInt(10_000));
-    getSwapTx(from, to, inToken, outToken, amount, slippage).then(async (res) => {
-      const raw = await res.json();
-      console.log(raw.tx.data);
-    });
-  }
-  
-  main();
-  
+}
+
+// We recommend this pattern to be able to use async/await everywhere
+// and properly handle errors.
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

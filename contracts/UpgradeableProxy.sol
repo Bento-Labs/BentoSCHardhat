@@ -70,6 +70,14 @@ contract UpgradeabilityProxy {
     _setProxyOwner(_newProxyOwner);
   }
 
+  function renounceProxyOwnership() public {
+    require(
+      msg.sender == proxyOwner(),
+      'UpgradeabilityProxy: only current proxy owner can renounce ownership.'
+    );
+    _setProxyOwner(address(0));
+  }
+
   function implementation() public view returns (address _implementation) {
     bytes32 position = implementationPosition;
     assembly {
