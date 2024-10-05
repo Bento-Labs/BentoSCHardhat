@@ -8,6 +8,14 @@ const config: HardhatUserConfig = {
           viaIR: true,
         },
       },
+    networks: {
+        hardhat: {
+            forking: {
+                url: process.env.MainnetAlchemyAPI || "",
+                blockNumber: 14390000
+            }
+        }
+    }
 };
 
 export default config;

@@ -21,6 +21,7 @@ contract VaultStorage {
         bool isSupported;
         uint8 decimals;
         uint8 weight;
+        address LtToken;
     }
 
     uint256 public totalWeight;
@@ -35,6 +36,8 @@ contract VaultStorage {
     /// @dev list of all assets supported by the vault.
     // slither-disable-next-line uninitialized-state
     address[] internal allAssets;
+
+    mapping(address => address) public ltTokenToAsset;
 
     /// @dev Address of the bentoToken. eg bentoUSD .
     // slither-disable-next-line uninitialized-state

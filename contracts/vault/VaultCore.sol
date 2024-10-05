@@ -60,8 +60,9 @@ contract VaultCore is VaultAdmin {
 
         // store the total value of the basket
         uint256 totalValueOfBasket = 0;
+        uint256 allAssetsLength = allAssets.length;
         // we iterate through all assets
-        for (uint256 i = 0; i < _allAssetsLength; i++) {
+        for (uint256 i = 0; i < allAssetsLength; i++) {
             address assetAddress = allAssets[i];
             // we only trade into assets that are not the asset we are depositing
             if (assetAddress != _asset) {
@@ -119,6 +120,15 @@ contract VaultCore is VaultAdmin {
         if (!success) {
             if (_data.length > 0) revert SwapFailed(string(_data));
             else revert SwapFailed("Unknown reason");
+        }
+    }
+
+    function _redeemLtBasket(uint256 _amount) internal {
+        uint256 allAssetsLength = allAssets.length;
+        for (uint256 i = 0; i < allAssetsLength; i++) {
+            address assetAddress = allAssets[i];
+            uint256 amountToRedeem = _amount * assets[assetAddress].weight / totalWeight;
+            IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
         }
     }
 }

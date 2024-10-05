@@ -54,11 +54,12 @@ contract VaultAdmin is VaultStorage {
     *  _decimals: the number of decimals of the asset
     *  _weight: the weight of the asset
     */
-    function setAsset(address _asset, uint8 _decimals, uint8 _weight) external onlyGovernor {
+    function setAsset(address _asset, uint8 _decimals, uint8 _weight, address _ltToken) external onlyGovernor {
         require(!assets[_asset].isSupported, "Asset is already supported");
         _changeAssetWeight(_asset, 0, _weight);
         assets[_asset].isSupported = true;
         assets[_asset].decimals = _decimals;
+        assets[_asset].LtToken = _ltToken;
         allAssets.push(_asset);
         emit AssetAdded(_asset, _decimals, _weight);
     }
@@ -85,10 +86,11 @@ contract VaultAdmin is VaultStorage {
     *  _decimals: the new number of decimals of the asset
     *  _weight: the new weight of the asset
     */
-    function changeAsset(address _asset, uint8 _decimals, uint8 _weight) external onlyGovernor {
+    function changeAsset(address _asset, uint8 _decimals, uint8 _weight, address _ltToken) external onlyGovernor {
         require(assets[_asset].isSupported, "Asset is not supported");
         _changeAssetWeight(_asset, assets[_asset].weight, _weight);
         assets[_asset].decimals = _decimals;
+        assets[_asset].LtToken = _ltToken;
         emit AssetChanged(_asset, _decimals, _weight);
     }
 
