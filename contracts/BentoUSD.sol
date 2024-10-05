@@ -19,4 +19,9 @@ contract BentoUSD is OFT {
         require(msg.sender == vault, "Only owner can mint");
         _mint(account, value);
     }
+
+    function burn(address account, uint256 value) external {
+        require(msg.sender == vault, "Only owner can burn");
+        _burn(account, value);
+    }
 }

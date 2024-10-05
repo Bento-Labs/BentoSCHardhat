@@ -71,7 +71,7 @@ contract VaultCore is VaultAdmin {
                 uint256 balanceBefore = IERC20(assetAddress).balanceOf(address(this));
                 // get asset price from oracle
                 uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-                if (assetPrice < 1e18) {
+                if (assetPrice > 1e18) {
                     assetPrice = 1e18;
                 }
                 _swap(_routers[i], _routerData[i]);
@@ -102,7 +102,7 @@ contract VaultCore is VaultAdmin {
             uint256 amountToDeposit = _amount * assets[assetAddress].weight / totalWeight;
             
             uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-            if (assetPrice < 1e18) {
+            if (assetPrice > 1e18) {
                 assetPrice = 1e18;
             }
             totalValueOfBasket += amountToDeposit * assetPrice / 1e18;
@@ -125,10 +125,35 @@ contract VaultCore is VaultAdmin {
 
     function _redeemLtBasket(uint256 _amount) internal {
         uint256 allAssetsLength = allAssets.length;
+
         for (uint256 i = 0; i < allAssetsLength; i++) {
             address assetAddress = allAssets[i];
-            uint256 amountToRedeem = _amount * assets[assetAddress].weight / totalWeight;
+            address ltToken = assets[assetAddress].ltToken;
+            uint256 ltTokenPrice = IOracle(oracleRouter).price(ltToken);
+            if (ltTokenPrice < 1e18) {
+                ltTokenPrice = 1e18;
+            }
+            uint256 amountToRedeem = _amount * assets[assetAddress].weight * ltTokenPrice / (totalWeight * 1e18);
+            IERC20(ltToken).safeTransfer(msg.sender, amountToRedeem);
+        }
+        BentoUSD(bentoUSD).burn(msg.sender, _amount);
+    }
+
+    function _redeemUnderlyingBasket(uint256 _amount) internal {
+        uint256 allAssetsLength = allAssets.length;
+        for (uint256 i = 0; i < allAssetsLength; i++) {
+            address assetAddress = allAssets[i];
+            uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
+            if (assetPrice < 1e18) {
+                assetPrice = 1e18;
+            }
+            uint256 amountToRedeem = _amount * assets[assetAddress].weight * assetPrice / (totalWeight * 1e18);
             IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
         }
+        BentoUSD(bentoUSD).burn(msg.sender, _amount);
+    }
+
+    function _redeemWithWaitingPeriod(uint256 _amount) internal {
+        revert("VaultCore: redeemWithWaitingPeriod is not implemented");
     }
 }
