@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 // https://github.com/mstable/mStable-contracts/blob/master/contracts/shared/StableMath.sol
 
 library StableMath {
-
     /**
      * @dev Scaling unit for use in specific calculations,
      * where 1 * 10**18, or 1e18 represents a unit '1'
@@ -27,10 +26,10 @@ library StableMath {
         uint256 from
     ) internal pure returns (uint256) {
         if (to > from) {
-            x = x * (10**(to - from));
+            x = x * (10 ** (to - from));
         } else if (to < from) {
             // slither-disable-next-line divide-before-multiply
-            x = x /(10**(from - to));
+            x = x / (10 ** (from - to));
         }
         return x;
     }
@@ -78,11 +77,10 @@ library StableMath {
      * @return Result after multiplying the two inputs and then dividing by the shared
      *          scale unit, rounded up to the closest base unit.
      */
-    function mulTruncateCeil(uint256 x, uint256 y)
-        internal
-        pure
-        returns (uint256)
-    {
+    function mulTruncateCeil(
+        uint256 x,
+        uint256 y
+    ) internal pure returns (uint256) {
         // e.g. 8e17 * 17268172638 = 138145381104e17
         uint256 scaled = x * y;
         // e.g. 138145381104e17 + 9.99...e17 = 138145381113.99...e17
@@ -99,11 +97,10 @@ library StableMath {
      * @return Result after multiplying the left operand by the scale, and
      *         executing the division on the right hand input.
      */
-    function divPrecisely(uint256 x, uint256 y)
-        internal
-        pure
-        returns (uint256)
-    {
+    function divPrecisely(
+        uint256 x,
+        uint256 y
+    ) internal pure returns (uint256) {
         // e.g. 8e18 * 1e18 = 8e36
         uint256 z = x * FULL_SCALE;
         // e.g. 8e36 / 10e18 = 8e17

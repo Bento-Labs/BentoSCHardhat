@@ -9,10 +9,12 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@nomicfoundation/hardhat-foundry": "^1.1.3",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "hardhat": "^2.22.11"
   },
   "dependencies": {
-    "@layerzerolabs/oft-evm": "^0.0.11"
+    "@layerzerolabs/solidity-examples": "^1.1.0",
+    "@tenderly/hardhat-tenderly": "^2.5.1"
   }
 }

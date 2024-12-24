@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { IOracle } from "./interfaces/IOracle.sol";
-import { AggregatorV3Interface } from "./interfaces/chainlink/AggregatorV3Interface.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { StableMath } from "./utils/StableMath.sol";
+import {IOracle} from "./interfaces/IOracle.sol";
+import {AggregatorV3Interface} from "./interfaces/chainlink/AggregatorV3Interface.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {StableMath} from "./utils/StableMath.sol";
 
-// @notice Abstract functionality that is shared between various Oracle Routers
-abstract contract OracleRouter is IOracle, Ownable {
+contract OracleRouter is IOracle, Ownable {
     using StableMath for uint256;
     using SafeCast for int256;
 
@@ -26,7 +25,21 @@ abstract contract OracleRouter is IOracle, Ownable {
         uint256 maxStaleness;
     }
 
-    function addFeed(address asset, address feedAddress, uint8 decimals, uint256 maxStaleness) public onlyOwner {
+    constructor(address initialOwner) Ownable() {
+        // Any additional initialization logic can go here
+    }
+
+    function addFeed(
+        address asset,
+        address feedAddress,
+        uint256 maxStaleness,
+        uint8 decimals
+    ) public onlyOwner {
+        try AggregatorV3Interface(feedAddress).decimals() returns (uint8 feedDecimals) {
+            require(feedDecimals == decimals, "Input decimals do not match feed decimals");
+        } catch {
+            // If decimals is not callable, use the input decimals
+        }
         tokenToFeed[asset] = FeedInfo(decimals, feedAddress, maxStaleness);
     }
 
@@ -35,19 +48,16 @@ abstract contract OracleRouter is IOracle, Ownable {
      * @param asset address of the asset
      * @return uint256 unit price for 1 asset unit, in 18 decimal fixed
      */
-    function price(address asset)
-        external
-        view
-        virtual
-        override
-        returns (uint256)
-    {
+    function price(
+        address asset
+    ) external view virtual override returns (uint256) {
         FeedInfo storage feedInfo = tokenToFeed[asset];
         address _feed = feedInfo.feedAddress;
         uint8 decimals = feedInfo.decimals;
         uint256 maxStaleness = feedInfo.maxStaleness;
         require(_feed != address(0), "Asset not available");
         require(_feed != FIXED_PRICE, "Fixed price feeds not supported");
+        
 
         (, int256 _iprice, , uint256 updatedAt, ) = AggregatorV3Interface(_feed)
             .latestRoundData();
@@ -58,11 +68,11 @@ abstract contract OracleRouter is IOracle, Ownable {
         );
 
         uint256 _price = _iprice.toUint256().scaleBy(18, decimals);
-        require(_price <= MAX_DRIFT, "Oracle: Price exceeds max");
-        require(_price >= MIN_DRIFT, "Oracle: Price under min");
+
+        /// dev: split the checks for stablecoin and non-stablecoin
+        /* require(_price <= MAX_DRIFT, "Oracle: Price exceeds max");
+        require(_price >= MIN_DRIFT, "Oracle: Price under min"); */
 
         return _price;
     }
-
-
 }

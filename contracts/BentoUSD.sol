@@ -1,27 +1,32 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
+import {OFT} from "@layerzerolabs/solidity-examples/contracts/token/oft/v1/OFT.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @notice OFT is an ERC-20 token that extends the OFTCore contract.
-contract BentoUSD is OFT {
-
-    address public vault;
+contract BentoUSD is Ownable, OFT {
+    address public bentoUSDVault;
     constructor(
         string memory _name,
         string memory _symbol,
         address _lzEndpoint,
         address _delegate
-    ) OFT(_name, _symbol, _lzEndpoint, _delegate) Ownable(_delegate) {}
-
-    function mint(address account, uint256 value) external {
-        require(msg.sender == vault, "Only owner can mint");
-        _mint(account, value);
+    ) OFT(_name, _symbol, _lzEndpoint) Ownable() {
+        // Any additional initialization logic
     }
 
-    function burn(address account, uint256 value) external {
-        require(msg.sender == vault, "Only owner can burn");
-        _burn(account, value);
+    // for mainnet we will need to remove the minting right from owner.
+    function mint(address _to, uint256 _amount) public {
+        require(msg.sender == bentoUSDVault || msg.sender == owner(), "BentoUSD: only bentoUSDVault or owner can mint");
+        _mint(_to, _amount);
+    }
+
+    function burn(address _from, uint256 _amount) public {
+        require(msg.sender == bentoUSDVault || msg.sender == owner(), "BentoUSD: only bentoUSDVault or owner can burn");
+        _burn(_from, _amount);
+    }
+
+    function setBentoUSDVault(address _bentoUSDVault) public onlyOwner {
+        bentoUSDVault = _bentoUSDVault;
     }
 }

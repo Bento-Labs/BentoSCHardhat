@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/utils/Address.sol';
+import "hardhat/console.sol";
 
-contract UpgradeabilityProxy {
-
+contract UpgradableProxy {
   bytes32 private constant proxyOwnerPosition = keccak256('proxy.owner');
   bytes32 private constant newProxyOwnerPosition = keccak256('proxy.newOwner');
   bytes32 private constant implementationPosition = keccak256(
@@ -14,12 +14,13 @@ contract UpgradeabilityProxy {
     'proxy.newImplementation'
   );
   bytes32 private constant timelockPosition = keccak256('proxy.timelock');
-  uint256 public constant timelockPeriod = 21600;
+  uint256 public immutable timelockPeriod;
 
   constructor(
     address _proxyOwner,
     address _implementation,
     bytes memory initializationData,
+    uint256 _timelockPeriod,
     bool forceCall
   ) {
     _setProxyOwner(_proxyOwner);
@@ -27,6 +28,7 @@ contract UpgradeabilityProxy {
     if (initializationData.length > 0 || forceCall) {
             Address.functionDelegateCall(implementation(), initializationData);
         }
+    timelockPeriod = _timelockPeriod;
   }
 
   function proxyOwner() public view returns (address _proxyOwner) {
@@ -70,14 +72,6 @@ contract UpgradeabilityProxy {
     _setProxyOwner(_newProxyOwner);
   }
 
-  function renounceProxyOwnership() public {
-    require(
-      msg.sender == proxyOwner(),
-      'UpgradeabilityProxy: only current proxy owner can renounce ownership.'
-    );
-    _setProxyOwner(address(0));
-  }
-
   function implementation() public view returns (address _implementation) {
     bytes32 position = implementationPosition;
     assembly {
@@ -118,6 +112,7 @@ contract UpgradeabilityProxy {
   }
 
   function setNewImplementation(address _newImplementation) public {
+    printChainState();
     require(
       msg.sender == proxyOwner(),
       'UpgradeabilityProxy: only current proxy owner can set new implementation.'
@@ -131,13 +126,16 @@ contract UpgradeabilityProxy {
   }
 
   function transferImplementation() public {
+    printChainState();
     require(
       msg.sender == proxyOwner(),
       'UpgradeabilityProxy: only proxy owner can transfer implementation.'
     );
+    console.log("timelock:", timelock());
+    console.log("block.timestamp:", block.timestamp);
     require(
       block.timestamp >= timelock(),
-      'UpgradeabilityProxy: cannot transfer implementation yet.'
+      string(abi.encodePacked('UpgradeabilityProxy: cannot transfer implementation yet. Current time: ', block.timestamp, ', Required time: ', timelock()))
     );
     _setImplementation(newImplementation());
   }
@@ -175,5 +173,11 @@ contract UpgradeabilityProxy {
 
   receive() external payable {
     _delegate(implementation());
+  }
+
+  function printChainState() public view {
+    console.log("block.timestamp:", block.timestamp);
+    console.log("block.number:", block.number);
+    console.log("timelock:", timelock());
   }
 }
