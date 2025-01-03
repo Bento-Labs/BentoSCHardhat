@@ -9,5 +9,5 @@ interface IStakedUSDe {
 
     function cooldownShares(uint256 shares, address owner) external returns (uint256 assets);
     function unstake(address receiver) external;
-  function setCooldownDuration(uint24 duration) external;
+   function setCooldownDuration(uint24 duration) external;
 }

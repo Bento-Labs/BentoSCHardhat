@@ -24,7 +24,7 @@ contract VaultCore is Initializable, VaultAdmin {
     using StableMath for uint256;
     uint256 public constant deviationTolerance = 1; // in percentage
 
-    event SwapResult(
+    event Swap(
         address inputAsset,
         address outputAsset,
         address router,
@@ -44,7 +44,7 @@ contract VaultCore is Initializable, VaultAdmin {
         _disableInitializers();
     }
 
-    // === External Functions ===
+    // === External State-Changing Functions ===
     
     function initialize(address _governor) public initializer {
         require(_governor != address(0), "Governor cannot be zero address");
@@ -121,55 +121,7 @@ contract VaultCore is Initializable, VaultAdmin {
         _allocate();
     }
 
-    // === Public View Functions ===
-
-    /**
-     * @notice Calculates the required amounts of each asset for a proportional deposit
-     * @param desiredAmount Total USD value to be deposited
-     * @return Array of asset amounts and total USD value
-     */
-    function getDepositAssetAmounts(uint256 desiredAmount) public view returns (uint256[] memory, uint256) {
-        uint256 numberOfAssets = allAssets.length;
-        uint256[] memory relativeWeights = new uint256[](numberOfAssets);
-        uint256[] memory amounts = new uint256[](numberOfAssets);
-        uint256 totalRelativeWeight = 0;
-        for (uint256 i = 0; i < numberOfAssets; i++) {
-            address assetAddress = allAssets[i];
-
-            uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-            if (assetPrice > 1e18) {
-                assetPrice = 1e18;
-            }
-            relativeWeights[i] = assets[assetAddress].weight * assetPrice;
-            totalRelativeWeight += relativeWeights[i];
-        }
-        uint256 totalAmount = 0;
-        for (uint256 i = 0; i < numberOfAssets; i++) {
-            // we round it upwards to avoid rounding errors detrimental for the protocol
-            amounts[i] = (desiredAmount * relativeWeights[i]) / totalRelativeWeight;
-            totalAmount += amounts[i];
-            amounts[i] = normalizeDecimals(IERC20Metadata(allAssets[i]).decimals(), amounts[i]);
-        }
-        return (amounts, totalAmount);
-    }
-
-    function getOutputLTAmounts(uint256 inputAmount) public view returns (uint256[] memory) {
-        uint256[] memory amounts = new uint256[](allAssets.length);
-        for (uint256 i = 0; i < allAssets.length; i++) {
-            address asset = allAssets[i];
-            address ltToken = assets[asset].ltToken;
-            uint256 partialInputAmount = (inputAmount * assets[asset].weight) / totalWeight;
-            uint256 assetPrice = IOracle(oracleRouter).price(asset);
-            if (assetPrice < 1e18) {
-                assetPrice = 1e18;
-            }
-            uint256 partialInputAmountAfterPrice = normalizeDecimals(assets[asset].decimals, partialInputAmount * 1e18 / assetPrice);
-            amounts[i] = IERC4626(ltToken).convertToShares(partialInputAmountAfterPrice);
-        }
-        return amounts;
-    }
-
-    // === Internal Functions ===
+    // === Internal State-Changing Functions ===
 
     function _mint(
         address _asset,
@@ -214,7 +166,7 @@ contract VaultCore is Initializable, VaultAdmin {
                 );
                 // get the amount of asset that is not in the balance after the trade
                 uint256 outputAmount = balanceAfter - balanceBefore;
-                emit SwapResult(
+                emit Swap(
                     _asset,
                     assetAddress,
                     _routers[i],
@@ -308,15 +260,52 @@ contract VaultCore is Initializable, VaultAdmin {
         }
     }
 
-    // === Internal Pure Functions ===
+    // === Public/External View Functions ===
 
-    function normalizeDecimals(uint8 assetDecimals, uint256 amount) internal pure returns (uint256) {
-        if (assetDecimals < 18) {
-            return amount / 10 ** (18 - assetDecimals);
-        } else if (assetDecimals > 18) {
-            return amount * 10 ** (assetDecimals - 18);
+    /**
+     * @notice Calculates the required amounts of each asset for a proportional deposit
+     * @param desiredAmount Total USD value to be deposited
+     * @return Array of asset amounts and total USD value
+     */
+    function getDepositAssetAmounts(uint256 desiredAmount) public view returns (uint256[] memory, uint256) {
+        uint256 numberOfAssets = allAssets.length;
+        uint256[] memory relativeWeights = new uint256[](numberOfAssets);
+        uint256[] memory amounts = new uint256[](numberOfAssets);
+        uint256 totalRelativeWeight = 0;
+        for (uint256 i = 0; i < numberOfAssets; i++) {
+            address assetAddress = allAssets[i];
+
+            uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
+            if (assetPrice > 1e18) {
+                assetPrice = 1e18;
+            }
+            relativeWeights[i] = assets[assetAddress].weight * assetPrice;
+            totalRelativeWeight += relativeWeights[i];
         }
-        return amount;
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < numberOfAssets; i++) {
+            // we round it upwards to avoid rounding errors detrimental for the protocol
+            amounts[i] = (desiredAmount * relativeWeights[i]) / totalRelativeWeight;
+            totalAmount += amounts[i];
+            amounts[i] = normalizeDecimals(IERC20Metadata(allAssets[i]).decimals(), amounts[i]);
+        }
+        return (amounts, totalAmount);
+    }
+
+    function getOutputLTAmounts(uint256 inputAmount) public view returns (uint256[] memory) {
+        uint256[] memory amounts = new uint256[](allAssets.length);
+        for (uint256 i = 0; i < allAssets.length; i++) {
+            address asset = allAssets[i];
+            address ltToken = assets[asset].ltToken;
+            uint256 partialInputAmount = (inputAmount * assets[asset].weight) / totalWeight;
+            uint256 assetPrice = IOracle(oracleRouter).price(asset);
+            if (assetPrice < 1e18) {
+                assetPrice = 1e18;
+            }
+            uint256 partialInputAmountAfterPrice = normalizeDecimals(assets[asset].decimals, partialInputAmount * 1e18 / assetPrice);
+            amounts[i] = IERC4626(ltToken).convertToShares(partialInputAmountAfterPrice);
+        }
+        return amounts;
     }
 
     function getTotalValue() public view returns (uint256) {
@@ -351,5 +340,16 @@ contract VaultCore is Initializable, VaultAdmin {
             ratios[i] = IERC4626(ltToken).convertToShares(unit);
         }
         return ratios;
+    }
+
+    // === Internal Pure Functions ===
+
+    function normalizeDecimals(uint8 assetDecimals, uint256 amount) internal pure returns (uint256) {
+        if (assetDecimals < 18) {
+            return amount / 10 ** (18 - assetDecimals);
+        } else if (assetDecimals > 18) {
+            return amount * 10 ** (assetDecimals - 18);
+        }
+        return amount;
     }
 }
