@@ -214,6 +214,8 @@ contract VaultCore is Initializable, VaultAdmin {
 
     function _redeemUnderlyingBasket(uint256 _amount) internal {
         uint256 allAssetsLength = allAssets.length;
+        // first we try to withdraw from the buffer wallet inside the vault core
+        // if not enough, we try to exchange the yield-bearing token to the underlying stable token
         for (uint256 i = 0; i < allAssetsLength; i++) {
             address assetAddress = allAssets[i];
             uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
@@ -223,6 +225,16 @@ contract VaultCore is Initializable, VaultAdmin {
             uint256 amountToRedeem = (_amount *
                 assets[assetAddress].weight *
                 assetPrice) / (totalWeight * 1e18);
+            uint256 amountInBuffer = IERC20(assetAddress).balanceOf(address(this));
+            uint256 missingAmount;
+            if (amountInBuffer < amountToRedeem) {
+                missingAmount = amountToRedeem - amountInBuffer;
+                amountToRedeem = amountInBuffer;
+            }
+            // if there is any missing amount then we need to withdraw them from the protocol
+            if (missingAmount > 0) {
+                IERC20(assets[assetAddress].ltToken).safeTransfer(msg.sender, missingAmount);
+            }
             IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
         }
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
@@ -294,22 +306,52 @@ contract VaultCore is Initializable, VaultAdmin {
 
     function getOutputLTAmounts(uint256 inputAmount) public view returns (uint256[] memory) {
         uint256[] memory amounts = new uint256[](allAssets.length);
+        address priceOracle = oracleRouter;
         for (uint256 i = 0; i < allAssets.length; i++) {
             address asset = allAssets[i];
-            address ltToken = assets[asset].ltToken;
+            Asset memory assetInfo = assets[asset];
             // first we calculate the amount corresponding to the asset in USD 
-            uint256 partialInputAmount = (inputAmount * assets[asset].weight) / totalWeight;
-            // the price is how much 1 stablecoin is worth in USD with 18 precision digits
-            uint256 assetPrice = IOracle(oracleRouter).price(asset);
+            uint256 partialInputAmount = (inputAmount * assetInfo.weight) / totalWeight;
+            amounts[i] = convertToLTAmount(partialInputAmount, asset, assetInfo.ltToken, priceOracle, true);
+        }
+        return amounts;
+    }
+
+    /**
+     * @notice Converts a USD amount to the corresponding liquid staking token amount
+     * @dev Uses oracle price to convert USD value to underlying asset amount, then normalizes decimals
+     * @param amount The amount in USD (with 18 decimals)
+     * @param asset The address of the underlying asset (e.g., DAI, USDC)
+     * @param priceOracle The address of the price oracle, we put oracle address as a parameter so we don't have to load from storage multiple times in getOutputLTAmounts
+     * @param redeemFlag If true (in case of redeeming), uses max price (1e18) for prices below 1e18
+     *                   If false (in case of minting), uses min price (1e18) for prices above 1e18
+     * @return The amount of liquid staking tokens corresponding to the USD value
+     *
+     * @custom:example For converting 1000 USD to sDAI:
+     * - amount = 1000e18 (1000 USD with 18 decimals)
+     * - asset = DAI address
+     * - redeemFlag = false (for minting)
+     * Returns the equivalent amount of sDAI tokens
+     */
+    function convertToLTAmount(
+        uint256 amount,
+        address asset,
+        address ltToken,
+        address priceOracle,
+        bool redeemFlag
+    ) public view returns (uint256) {
+        uint256 assetPrice = IOracle(priceOracle).price(asset);
+        if (redeemFlag) {
             if (assetPrice < 1e18) {
                 assetPrice = 1e18;
             }
-            // then we calculate the amount in the underlying stable token
-            uint256 partialInputAmountAfterPrice = normalizeDecimals(assets[asset].decimals, partialInputAmount * 1e18 / assetPrice);
-            // in the end we convert to the amount of the yield-bearing token
-            amounts[i] = IERC4626(ltToken).convertToShares(partialInputAmountAfterPrice);
+        } else {
+            if (assetPrice > 1e18) {
+                assetPrice = 1e18;
+            }
         }
-        return amounts;
+        uint256 amountAfterPrice = normalizeDecimals(assets[asset].decimals, amount * 1e18 / assetPrice);
+        return IERC4626(ltToken).convertToShares(amountAfterPrice);
     }
 
     function getTotalValue() public view returns (uint256) {

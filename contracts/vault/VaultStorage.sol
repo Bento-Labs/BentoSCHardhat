@@ -40,6 +40,7 @@ contract VaultStorage {
     mapping(address => uint256) public minimalAmountInVault;
 
     mapping(address => address) public assetToStrategy;
+    mapping(address => address) public assetToEthenaWalletProxy;
 
     function getWeights() public view returns (uint32[] memory) {
         uint32[] memory weights = new uint32[](allAssets.length);
