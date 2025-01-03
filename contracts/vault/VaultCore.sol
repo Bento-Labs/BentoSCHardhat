@@ -297,12 +297,16 @@ contract VaultCore is Initializable, VaultAdmin {
         for (uint256 i = 0; i < allAssets.length; i++) {
             address asset = allAssets[i];
             address ltToken = assets[asset].ltToken;
+            // first we calculate the amount corresponding to the asset in USD 
             uint256 partialInputAmount = (inputAmount * assets[asset].weight) / totalWeight;
+            // the price is how much 1 stablecoin is worth in USD with 18 precision digits
             uint256 assetPrice = IOracle(oracleRouter).price(asset);
             if (assetPrice < 1e18) {
                 assetPrice = 1e18;
             }
+            // then we calculate the amount in the underlying stable token
             uint256 partialInputAmountAfterPrice = normalizeDecimals(assets[asset].decimals, partialInputAmount * 1e18 / assetPrice);
+            // in the end we convert to the amount of the yield-bearing token
             amounts[i] = IERC4626(ltToken).convertToShares(partialInputAmountAfterPrice);
         }
         return amounts;
