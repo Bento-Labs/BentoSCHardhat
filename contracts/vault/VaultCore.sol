@@ -233,8 +233,10 @@ contract VaultCore is Initializable, VaultAdmin {
             }
             // if there is any missing amount then we need to withdraw them from the protocol
             if (missingAmount > 0) {
-                IERC20(assets[assetAddress].ltToken).safeTransfer(msg.sender, missingAmount);
+                address strategy = assetToStrategy[assetAddress];
+                IStrategy(strategy).redeem(msg.sender, missingAmount);
             }
+            //!!! not correct
             IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
         }
         BentoUSD(bentoUSD).burn(msg.sender, _amount);

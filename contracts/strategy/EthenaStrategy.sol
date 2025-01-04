@@ -8,6 +8,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import { IStakedUSDe } from "@openzeppelin/contracts/interfaces/IStakedUSDe.sol";
+import { EthenaWalletProxy } from "../utils/EthenaWalletProxy.sol";
 import "hardhat/console.sol";
 
 
@@ -20,6 +22,8 @@ contract Generalized4626Strategy {
     address public immutable assetToken;
     //address of the admin (assumed to be the bento vault contract)
     address public immutable admin;
+
+    mapping(address => address) public userToEthenaWalletProxy;
 
     /**
      * @param _assetToken Address of the ERC-4626 asset token. eg frxETH or DAI
@@ -64,18 +68,15 @@ contract Generalized4626Strategy {
         require(_amount > 0, "Must withdraw something");
         require(_recipient != address(0), "Must specify recipient");
 
+        address ethenaWalletProxy;
+        if (userToEthenaWalletProxy[_recipient] == address(0)) {
+            ethenaWalletProxy = address(new EthenaWalletProxy(shareToken, admin));
+            userToEthenaWalletProxy[_recipient] = ethenaWalletProxy;
+        } else {
+            ethenaWalletProxy = userToEthenaWalletProxy[_recipient];
+        }
         // slither-disable-next-line unused-return
-        IERC4626(shareToken).withdraw(_amount, _recipient, address(this));
-    }
-
-    /**
-     * @dev Redeem shares by converting them to assets
-     * @param _amount Amount of shares to redeem
-     * @param _recipient Address to receive redeemed assets
-     */
-    function redeem(address _recipient, uint256 _amount) external virtual onlyAdmin {
-        // slither-disable-next-line unused-return
-        IERC4626(shareToken).redeem(_amount, _recipient, address(this));
+        EThenaWalletProxy(ethenaWalletProxy).withdraw(_amount);
     }
 
     /**

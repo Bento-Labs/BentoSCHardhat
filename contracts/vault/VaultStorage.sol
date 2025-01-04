@@ -16,10 +16,19 @@ contract VaultStorage {
 
     // Changed to fit into a single storage slot so the decimals needs to be recached
     struct Asset {
-        bool isSupported;
-        uint8 decimals;
-        uint32 weight;
         address ltToken;
+        uint32 weight;
+        uint8 decimals;
+        bool isSupported;
+        StrategyType strategyType;
+        address strategy;
+        uint256 minimalAmountInVault;
+    }
+
+    enum StrategyType {
+        Generalized4626,
+        Ethena,
+        Other
     }
 
     uint256 public totalWeight;
@@ -34,13 +43,6 @@ contract VaultStorage {
     /// @dev list of all assets supported by the vault.
     // slither-disable-next-line uninitialized-state
     address[] public allAssets;
-
-    mapping(address => address) public ltTokenToAsset;
-    /// @dev amount of asset we want to keep in the vault to cover for fast redemption
-    mapping(address => uint256) public minimalAmountInVault;
-
-    mapping(address => address) public assetToStrategy;
-    mapping(address => address) public assetToEthenaWalletProxy;
 
     function getWeights() public view returns (uint32[] memory) {
         uint32[] memory weights = new uint32[](allAssets.length);

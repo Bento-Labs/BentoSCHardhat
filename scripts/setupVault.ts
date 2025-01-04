@@ -17,9 +17,9 @@ async function main() {
   const owner = signer.address;
 
   // Contract addresses
-  const vaultAddress = "0x11E5eAD5844d54E4cBa42E4b9037d62019D9668d";
-  const bentoUSDAddress = "0x8Afce2895c93D73B53CCA57b2E27819A76D3BBE1";
-  const oracleRouterAddress = "0x000B6D1f05e3E59F49191c617450ad0Bb4B24ab5";
+  const vaultAddress = "0x6ae08082387AaBcA74830054B1f3ba8a0571F9c6";
+  const bentoUSDAddress = "0xE133Db4B5D0a6c69F05452E294de809e5b59e5f5";
+  const oracleRouterAddress = "0x6BfB50ce7f9D383b713A399f453AF8290cf14a74";
 
   // Asset addresses from your Addresses.sol equivalent
   const DAIAddress = addresses.mainnet.DAI;
