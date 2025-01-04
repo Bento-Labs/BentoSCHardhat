@@ -19,7 +19,7 @@ contract VaultStorage {
         address ltToken;
         uint32 weight;
         uint8 decimals;
-        bool isSupported;
+        uint8 index;
         StrategyType strategyType;
         address strategy;
         uint256 minimalAmountInVault;

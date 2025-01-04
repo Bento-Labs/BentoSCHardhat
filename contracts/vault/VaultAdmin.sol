@@ -10,17 +10,17 @@ pragma solidity ^0.8.0;
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {StableMath} from "../utils/StableMath.sol";
-
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import "./VaultStorage.sol";
 
 contract VaultAdmin is VaultStorage {
     using SafeERC20 for IERC20;
     using StableMath for uint256;
 
-    event AssetAdded(address indexed asset, uint8 decimals, uint32 weight);
+    event AssetAdded(address indexed asset, uint32 weight);
     event AssetRemoved(address indexed asset);
-    event AssetChanged(address indexed asset, uint8 decimals, uint32 weight);
     event OracleRouterUpdated(address indexed oracleRouter);
     event BentoUSDUpdated(address indexed bentoUSD);
     event GovernorUpdated(address indexed governor);
@@ -61,50 +61,63 @@ contract VaultAdmin is VaultStorage {
         address _asset,
         uint8 _decimals,
         uint32 _weight,
-        address _ltToken
+        address _ltToken,
+        StrategyType _strategyType,
+        address _strategy,
+        uint256 _minimalAmountInVault
     ) external onlyGovernor {
-        require(!assets[_asset].isSupported, "Asset is already supported");
-        _changeAssetWeight(_asset, 0, _weight);
-        assets[_asset].isSupported = true;
-        assets[_asset].decimals = _decimals;
-        assets[_asset].ltToken = _ltToken;
-        allAssets.push(_asset);
-        emit AssetAdded(_asset, _decimals, _weight);
+
+        require(_asset != address(0), "Invalid asset address");
+        require(_ltToken != address(0), "Invalid ltToken address");
+        // if the asset is not supported, add it to the list
+        if (assets[_asset].ltToken == address(0)) {
+            allAssets.push(_asset);
+            assets[_asset].index = allAssets.length - 1;
+        }
+        // change the weight and also the total weight
+        uint32 oldWeight = assets[_asset].weight;
+        _changeAssetWeight(_asset, oldWeight, _weight);
+        
+        Asset storage asset = assets[_asset];
+        asset.ltToken = _ltToken;
+        asset.weight = _weight;
+        // this is the decimals of the underlying asset
+        // we try to get the decimals from onchain source if possible
+        try IERC20Metadata(_ltToken).decimals() returns (uint8 decimals_) {
+            require(decimals_ == _decimals, "Inconsistent decimals input");
+            asset.decimals = decimals_;
+        } catch {
+            asset.decimals = _decimals;
+        }
+        asset.strategyType = _strategyType;
+        if (_strategyType == StrategyType.Generalized4626) {
+            require(_strategy == address(0), "Generalized4626 type token doesn't require a strategy");
+        } else {
+            require(_strategy != address(0), "Strategy is required for non-Generalized4626 type tokens");
+        }
+        if (_strategyType != StrategyType.Other) {
+            require(IERC4626(_ltToken).asset() == _asset, "Underlying asset mismatch");
+        }
+        asset.minimalAmountInVault = _minimalAmountInVault;
+
+        emit AssetAdded(_asset, _weight);
     }
 
     /* removeAsset is used to remove an asset from the vault.
      *  _asset: the address of the asset
      */
     function removeAsset(address _asset) external onlyGovernor {
-        require(assets[_asset].isSupported, "Asset is not supported");
+        require(assets[_asset].ltToken != address(0), "Asset is not supported");
         _changeAssetWeight(_asset, assets[_asset].weight, 0);
-        assets[_asset].isSupported = false;
         for (uint256 i = 0; i < allAssets.length; i++) {
             if (allAssets[i] == _asset) {
                 allAssets[i] = allAssets[allAssets.length - 1];
+                assets[allAssets[i]].index = uint8(i);
                 allAssets.pop();
                 break;
             }
         }
         emit AssetRemoved(_asset);
-    }
-
-    /* changeAsset is used to change the weight of an asset in the vault.
-     *  _asset: the address of the asset
-     *  _decimals: the new number of decimals of the asset
-     *  _weight: the new weight of the asset
-     */
-    function changeAsset(
-        address _asset,
-        uint8 _decimals,
-        uint32 _weight,
-        address _ltToken
-    ) external onlyGovernor {
-        require(assets[_asset].isSupported, "Asset is not supported");
-        _changeAssetWeight(_asset, assets[_asset].weight, _weight);
-        assets[_asset].decimals = _decimals;
-        assets[_asset].ltToken = _ltToken;
-        emit AssetChanged(_asset, _decimals, _weight);
     }
 
     /* _changeAssetWeight is used to change the weight of an asset and also the totalWeight of all assets.
@@ -120,13 +133,5 @@ contract VaultAdmin is VaultStorage {
         totalWeight = totalWeight + _newWeight - _oldWeight;
         assets[_asset].weight = _newWeight;
         emit AssetWeightChanged(_asset, _oldWeight, _newWeight);
-    }
-
-    function setMinimalAmountInVault(address _asset, uint256 _amount) external onlyGovernor {
-        minimalAmountInVault[_asset] = _amount;
-    }
-
-    function setStrategy(address _asset, address _strategy) external onlyGovernor {
-        assetToStrategy[_asset] = _strategy;
     }
 }
