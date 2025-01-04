@@ -56,6 +56,10 @@ contract VaultAdmin is VaultStorage {
      *  _asset: the address of the asset
      *  _decimals: the number of decimals of the asset
      *  _weight: the weight of the asset
+     *  _ltToken: the address of the underlying token
+     *  _strategyType: the type of the strategy
+     *  _strategy: the address of the strategy
+     *  _minimalAmountInVault: the minimal amount of the asset in the vault
      */
     function setAsset(
         address _asset,
@@ -72,7 +76,7 @@ contract VaultAdmin is VaultStorage {
         // if the asset is not supported, add it to the list
         if (assets[_asset].ltToken == address(0)) {
             allAssets.push(_asset);
-            assets[_asset].index = allAssets.length - 1;
+            assets[_asset].index = uint8(allAssets.length - 1);
         }
         // change the weight and also the total weight
         uint32 oldWeight = assets[_asset].weight;
@@ -112,6 +116,7 @@ contract VaultAdmin is VaultStorage {
         for (uint256 i = 0; i < allAssets.length; i++) {
             if (allAssets[i] == _asset) {
                 allAssets[i] = allAssets[allAssets.length - 1];
+                // since we move the last element to the current position, we need to update the index of the new last element
                 assets[allAssets[i]].index = uint8(i);
                 allAssets.pop();
                 break;
