@@ -251,23 +251,24 @@ contract VaultCore is Initializable, VaultAdmin {
         for (uint256 i = 0; i < allAssetsLength; ++i) {
             IERC20 asset = IERC20(allAssets[i]);
             uint256 assetBalance = asset.balanceOf(address(this));
-            uint256 minimalAmount = minimalAmountInVault[address(asset)];
+            Asset memory assetInfo = assets[allAssets[i]];
+            uint256 minimalAmount = assetInfo.minimalAmountInVault;
             if (assetBalance < minimalAmount) continue;
             // Multiply the balance by the vault buffer modifier and truncate
             // to the scale of the asset decimals
             uint256 allocateAmount = assetBalance - minimalAmount;
 
-            address depositStrategyAddr = assetToStrategy[address(asset)];
+            address strategyAddr = assetInfo.strategy;
 
-            if (depositStrategyAddr != address(0) && allocateAmount > 0) {
-                IStrategy strategy = IStrategy(depositStrategyAddr);
+            if (strategyAddr != address(0) && allocateAmount > 0) {
+                IStrategy strategy = IStrategy(strategyAddr);
                 // Transfer asset to Strategy and call deposit method to
                 // mint or take required action
                 asset.safeTransfer(address(strategy), allocateAmount);
                 strategy.deposit(allocateAmount);
                 emit AssetAllocated(
                     address(asset),
-                    depositStrategyAddr,
+                    strategyAddr,
                     allocateAmount
                 );
             }
