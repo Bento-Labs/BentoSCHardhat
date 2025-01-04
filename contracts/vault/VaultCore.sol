@@ -33,7 +33,6 @@ contract VaultCore is Initializable, VaultAdmin {
 
     event AssetAllocated(
         address asset,
-        address strategy,
         uint256 amount
     );
 
@@ -258,17 +257,16 @@ contract VaultCore is Initializable, VaultAdmin {
             // to the scale of the asset decimals
             uint256 allocateAmount = assetBalance - minimalAmount;
 
-            address strategyAddr = assetInfo.strategy;
-
-            if (strategyAddr != address(0) && allocateAmount > 0) {
-                IStrategy strategy = IStrategy(strategyAddr);
-                // Transfer asset to Strategy and call deposit method to
-                // mint or take required action
-                asset.safeTransfer(address(strategy), allocateAmount);
-                strategy.deposit(allocateAmount);
+            // if the strategy is a generalized 4626 or ethena, we deposit into the lt token directly
+            // otherwise we deposit into the strategy proxy
+            if (assetInfo.strategyType == StrategyType.Generalized4626 || assetInfo.strategyType == StrategyType.Ethena) {
+                IERC4626(assetInfo.ltToken).deposit(allocateAmount, address(this));
+            } else {
+                IStrategy(assetInfo.strategy).deposit(allocateAmount);
+            }
+            // the event should include how much LT tokens we get back
                 emit AssetAllocated(
                     address(asset),
-                    strategyAddr,
                     allocateAmount
                 );
             }
