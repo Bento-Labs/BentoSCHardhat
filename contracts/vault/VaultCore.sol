@@ -19,7 +19,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.
  * @notice Core vault implementation for BentoUSD stablecoin system
  * @dev Handles minting, redeeming, and asset allocation operations
  */
-contract VaultCore is Initializable, VaultAdmin {
+contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     using SafeERC20 for IERC20;
     using StableMath for uint256;
     uint256 public constant deviationTolerance = 1; // in percentage
@@ -231,17 +231,20 @@ contract VaultCore is Initializable, VaultAdmin {
             } else {
                 missingAmount = amountToRedeem - amountInBuffer;
                 address ltToken = assetInfo.ltToken;
-                missingAmountInLT = convertToLTAmount(missingAmount, assetAddress, ltToken);
                 if (assetInfo.strategyType == StrategyType.Generalized4626) {
                     // for ERC4626-compliant LTs we can withdraw directly
-                    IERC4626(ltToken).withdraw(missingAmountInLT, msg.sender, msg.sender);
+                    IERC4626(ltToken).withdraw(missingAmount, msg.sender, msg.sender);
                     IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
                 } else if (assetInfo.strategyType == StrategyType.Ethena) {
                     // we cannot withdraw yet, here we just start the unbonding period
-                    EthenaStrategy(assetInfo.strategy).commitWithdraw(msg.sender, missingAmountInLT);
+                    commitWithdraw(msg.sender, missingAmount);
                 } else {
                     // for other types of LTs we perform the logics through a specialized strategy contract
-                    IStrategy(assetInfo.strategy).redeem(msg.sender, missingAmount);
+                    // we need to send LTs to this strategy contract first
+                    address strategy = assetInfo.strategy;
+                    address missingAmountInLT = IStrategy(strategy).convertToShares(missingAmount);
+                    IERC20(ltToken).safeTransfer(strategy, missingAmountInLT);
+                    IStrategy(strategy).redeem(msg.sender, missingAmountInLT);
                 }
             }
         }

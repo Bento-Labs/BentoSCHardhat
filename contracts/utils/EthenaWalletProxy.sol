@@ -15,7 +15,7 @@ contract EthenaWalletProxy {
     }
     
     // we don't need to implement deposit since we use batch deposit from the bentoUSDVault to Ethena
-    function withdraw(uint256 _amount) external {
+    function commitWithdraw(uint256 _amount) external {
         require(msg.sender == bentoUSDVault, "Only bentoUSDVault can call withdraw");
         IStakedUSDe(ethenaVault).cooldownShares(_amount, msg.sender);
     }

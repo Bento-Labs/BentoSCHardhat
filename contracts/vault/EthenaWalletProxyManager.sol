@@ -13,7 +13,7 @@ import { EthenaWalletProxy } from "../utils/EthenaWalletProxy.sol";
 import "hardhat/console.sol";
 
 
-contract Generalized4626Strategy {
+contract EthenaWalletProxyManager {
     using SafeERC20 for IERC20;
 
     //address of the ERC-4626 Vault contract
@@ -57,26 +57,28 @@ contract Generalized4626Strategy {
     }
 
     /**
-     * @dev Withdraw asset by burning shares
+     * @dev commit to a withdrawal request in Ethena protocol, which triggers the unbonding period
      * @param _recipient Address to receive withdrawn asset
      * @param _amount Amount of asset to withdraw
      */
-    function withdraw(
+    function commitRedeem(
         address _recipient,
-        uint256 _amount
+        uint256 _assetAmount
     ) external virtual onlyAdmin {
-        require(_amount > 0, "Must withdraw something");
+        require(_assetAmount > 0, "Must withdraw something");
         require(_recipient != address(0), "Must specify recipient");
-
+        
+        // the ethena wallet proxy corresponding to _recipient
         address ethenaWalletProxy;
         if (userToEthenaWalletProxy[_recipient] == address(0)) {
+            // if the user does not have a wallet proxy yet, we create a new one
             ethenaWalletProxy = address(new EthenaWalletProxy(shareToken, admin));
             userToEthenaWalletProxy[_recipient] = ethenaWalletProxy;
         } else {
             ethenaWalletProxy = userToEthenaWalletProxy[_recipient];
         }
         // slither-disable-next-line unused-return
-        EThenaWalletProxy(ethenaWalletProxy).withdraw(_amount);
+        EThenaWalletProxy(ethenaWalletProxy).commitWithdraw(_assetAmount);
     }
 
     /**
