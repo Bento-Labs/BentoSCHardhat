@@ -217,28 +217,34 @@ contract VaultCore is Initializable, VaultAdmin {
         // if not enough, we try to exchange the yield-bearing token to the underlying stable token
         for (uint256 i = 0; i < allAssetsLength; i++) {
             address assetAddress = allAssets[i];
-            uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-            if (assetPrice < 1e18) {
-                assetPrice = 1e18;
-            }
+            address assetInfo = assets[assetAddress];
+            uint256 adjustedPrice = adjustPrice(IOracle(oracleRouter).price(assetAddress), true);
             uint256 amountToRedeem = (_amount *
-                assets[assetAddress].weight *
-                assetPrice) / (totalWeight * 1e18);
+                assetInfo.weight *
+                1e18) / (totalWeight * adjustedPrice);
+            // get the buffer balance
             uint256 amountInBuffer = IERC20(assetAddress).balanceOf(address(this));
-            uint256 missingAmount;
-            if (amountInBuffer < amountToRedeem) {
+            BentoUSD(bentoUSD).burn(msg.sender, _amount);
+            if (amountInBuffer >= amountToRedeem) {
+                // if the buffer has enough, we can just transfer the amount to the user
+                IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
+            } else {
                 missingAmount = amountToRedeem - amountInBuffer;
-                amountToRedeem = amountInBuffer;
+                address ltToken = assetInfo.ltToken;
+                missingAmountInLT = convertToLTAmount(missingAmount, assetAddress, ltToken);
+                if (assetInfo.strategyType == StrategyType.Generalized4626) {
+                    // for ERC4626-compliant LTs we can withdraw directly
+                    IERC4626(ltToken).withdraw(missingAmountInLT, msg.sender, msg.sender);
+                    IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
+                } else if (assetInfo.strategyType == StrategyType.Ethena) {
+                    // we cannot withdraw yet, here we just start the unbonding period
+                    EthenaStrategy(assetInfo.strategy).commitWithdraw(msg.sender, missingAmountInLT);
+                } else {
+                    // for other types of LTs we perform the logics through a specialized strategy contract
+                    IStrategy(assetInfo.strategy).redeem(msg.sender, missingAmount);
+                }
             }
-            // if there is any missing amount then we need to withdraw them from the protocol
-            if (missingAmount > 0) {
-                address strategy = assetToStrategy[assetAddress];
-                IStrategy(strategy).redeem(msg.sender, missingAmount);
-            }
-            //!!! not correct
-            IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
         }
-        BentoUSD(bentoUSD).burn(msg.sender, _amount);
     }
 
     function _redeemWithWaitingPeriod(uint256 _amount) internal {
@@ -313,46 +319,21 @@ contract VaultCore is Initializable, VaultAdmin {
             Asset memory assetInfo = assets[asset];
             // first we calculate the amount corresponding to the asset in USD 
             uint256 partialInputAmount = (inputAmount * assetInfo.weight) / totalWeight;
-            amounts[i] = convertToLTAmount(partialInputAmount, asset, assetInfo.ltToken, priceOracle, true);
+            uint256 adjustedPrice = adjustPrice(IOracle(priceOracle).price(asset), true);
+            uint256 normalizedAmount = normalizeDecimals(assetInfo.decimals, partialInputAmount * 1e18 / adjustedPrice);
+            amounts[i] = convertToLTAmount(normalizedAmount, asset, assetInfo.ltToken);
         }
         return amounts;
     }
 
-    /**
-     * @notice Converts a USD amount to the corresponding liquid staking token amount
-     * @dev Uses oracle price to convert USD value to underlying asset amount, then normalizes decimals
-     * @param amount The amount in USD (with 18 decimals)
-     * @param asset The address of the underlying asset (e.g., DAI, USDC)
-     * @param priceOracle The address of the price oracle, we put oracle address as a parameter so we don't have to load from storage multiple times in getOutputLTAmounts
-     * @param redeemFlag If true (in case of redeeming), uses max price (1e18) for prices below 1e18
-     *                   If false (in case of minting), uses min price (1e18) for prices above 1e18
-     * @return The amount of liquid staking tokens corresponding to the USD value
-     *
-     * @custom:example For converting 1000 USD to sDAI:
-     * - amount = 1000e18 (1000 USD with 18 decimals)
-     * - asset = DAI address
-     * - redeemFlag = false (for minting)
-     * Returns the equivalent amount of sDAI tokens
-     */
+
     function convertToLTAmount(
         uint256 amount,
         address asset,
-        address ltToken,
-        address priceOracle,
-        bool redeemFlag
+        address ltToken
     ) public view returns (uint256) {
-        uint256 assetPrice = IOracle(priceOracle).price(asset);
-        if (redeemFlag) {
-            if (assetPrice < 1e18) {
-                assetPrice = 1e18;
-            }
-        } else {
-            if (assetPrice > 1e18) {
-                assetPrice = 1e18;
-            }
-        }
-        uint256 amountAfterPrice = normalizeDecimals(assets[asset].decimals, amount * 1e18 / assetPrice);
-        return IERC4626(ltToken).convertToShares(amountAfterPrice);
+        uint256 normalizedAmount = normalizeDecimals(assets[asset].decimals, amount);
+        return IERC4626(ltToken).convertToShares(normalizedAmount);
     }
 
     function getTotalValue() public view returns (uint256) {
@@ -377,6 +358,7 @@ contract VaultCore is Initializable, VaultAdmin {
         return totalValue;
     }
 
+    // what is the purpose of this function?
     function getTokenToShareRatios() public view returns (uint256[] memory) {
         uint256 allAssetsLength = allAssets.length;
         uint256[] memory ratios = new uint256[](allAssetsLength);
@@ -390,6 +372,18 @@ contract VaultCore is Initializable, VaultAdmin {
     }
 
     // === Internal Pure Functions ===
+    function adjustPrice(uint256 price, bool redeemFlag) internal pure returns (uint256) {
+        if (redeemFlag) {
+            if (price < 1e18) {
+                price = 1e18;
+            }
+        } else {
+            if (price > 1e18) {
+                price = 1e18;
+            }
+        }
+        return price;
+    }
 
     function normalizeDecimals(uint8 assetDecimals, uint256 amount) internal pure returns (uint256) {
         if (assetDecimals < 18) {
