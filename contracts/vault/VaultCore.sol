@@ -53,6 +53,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
 
     /**
      * @notice Mints BentoUSD tokens in exchange for a single supported asset
+     * @param _recipient Address to receive minted BentoUSD
      * @param _asset Address of the input asset
      * @param _amount Amount of input asset to deposit
      * @param _minimumBentoUSDAmount Minimum acceptable BentoUSD output
@@ -60,13 +61,14 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      * @param _routerData Encoded swap data for each router
      */
     function mint(
+        address _recipient,
         address _asset,
         uint256 _amount,
         uint256 _minimumBentoUSDAmount,
         address[] calldata _routers,
         bytes[] calldata _routerData
     ) external {
-        _mint(_asset, _amount, _minimumBentoUSDAmount, _routers, _routerData);
+        _mint(_recipient, _asset, _amount, _minimumBentoUSDAmount, _routers, _routerData);
     }
 
     /**
@@ -75,6 +77,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      * @param _minimumBentoUSDAmount Minimum acceptable BentoUSD output
      */
     function mintBasket(
+        address _recipient,
         uint256 _amount,
         uint256 _minimumBentoUSDAmount
     ) external {
@@ -94,14 +97,15 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                 )
             )
         );
-        BentoUSD(bentoUSD).mint(msg.sender, totalAmount);
+        BentoUSD(bentoUSD).mint(_recipient, totalAmount);
     }
 
     /**
      * @notice Redeems BentoUSD for liquid staking tokens of supported assets
+     * @param _recipient Address to receive withdrawn assets
      * @param _amount Amount of BentoUSD to redeem
      */
-    function redeemLTBasket(uint256 _amount) external {
+    function redeemLTBasket(address _recipient, uint256 _amount) external {
         uint256[] memory ltAmounts = getOutputLTAmounts(_amount);
         require(IERC20(bentoUSD).balanceOf(msg.sender) >= _amount, "VaultCore: insufficient BentoUSD in user's wallet");
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
@@ -109,8 +113,12 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             address assetAddress = allAssets[i];
             address ltToken = assetToAssetInfo[assetAddress].ltToken;
             require(IERC20(ltToken).balanceOf(address(this)) >= ltAmounts[i], "VaultCore: insufficient LT tokens in vault");
-            IERC20(ltToken).safeTransfer(msg.sender, ltAmounts[i]);
+            IERC20(ltToken).safeTransfer(_recipient, ltAmounts[i]);
         }
+    }
+
+    function redeemUnderlyingBasket(address _recipient, uint256 _amount) external {
+        _redeemUnderlyingBasket(_recipient, _amount);
     }
 
     /**
@@ -124,6 +132,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     // === Internal State-Changing Functions ===
 
     function _mint(
+        address _recipient,
         address _asset,
         uint256 _amount,
         uint256 _minimumBentoUSDAmount,
@@ -201,7 +210,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                 )
             )
         );
-        BentoUSD(bentoUSD).mint(msg.sender, totalValueOfBasket);
+        BentoUSD(bentoUSD).mint(_recipient, totalValueOfBasket);
     }
 
     function _swap(address _router, bytes calldata _routerData) internal {
@@ -212,7 +221,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         }
     }
 
-    function _redeemUnderlyingBasket(uint256 _amount) internal {
+    function _redeemUnderlyingBasket(address _recipient, uint256 _amount) internal {
         uint256 allAssetsLength = allAssets.length;
         // first we try to withdraw from the buffer wallet inside the vault core
         // if not enough, we try to exchange the yield-bearing token to the underlying stable token
@@ -229,7 +238,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             BentoUSD(bentoUSD).burn(msg.sender, _amount);
             if (amountInBuffer >= amountToRedeem) {
                 // if the buffer has enough, we can just transfer the amount to the user
-                IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
+                IERC20(assetAddress).safeTransfer(_recipient, amountToRedeem);
             } else {
                 // the missing amount is in underlying assets
                 uint256 missingAmount = amountToRedeem - amountInBuffer;
@@ -237,9 +246,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                 if (assetInfo.strategyType == StrategyType.Generalized4626) {
                     // for ERC4626-compliant LTs we can withdraw directly
                     IERC4626(ltToken).withdraw(missingAmount, msg.sender, msg.sender);
-                    IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
+                    IERC20(assetAddress).safeTransfer(_recipient, amountToRedeem);
                 } else if (assetInfo.strategyType == StrategyType.Ethena) {
-                    // the ethena wallet proxy corresponding to _recipient
+                    // the ethena wallet proxy corresponding to msg.sender
                     address ethenaWalletProxy = userToEthenaWalletProxy[msg.sender];
                     if (ethenaWalletProxy == address(0)) {
                         ethenaWalletProxy = address(new EthenaWalletProxy(ltToken, address(this)));
@@ -253,7 +262,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                     address strategy = assetInfo.strategy;
                     uint256 missingAmountInLT = IStrategy(strategy).convertToShares(missingAmount);
                     IERC20(ltToken).safeTransfer(strategy, missingAmountInLT);
-                    IStrategy(strategy).redeem(msg.sender, missingAmountInLT);
+                    IStrategy(strategy).redeem(_recipient, missingAmountInLT);
                     // the transfer of underlying assets to the user is done in the strategy contract
                 }
             }
