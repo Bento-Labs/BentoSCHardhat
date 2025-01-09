@@ -3,10 +3,13 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-foundry";
 import * as tdly from "@tenderly/hardhat-tenderly";
 
-tdly.setup({ automaticVerifications: true });
+/* tdly.setup({ automaticVerifications: true }); */
 
 
 const config: HardhatUserConfig = {
+    mocha: {
+        timeout: 100000000,
+      },
     solidity: {
         version: "0.8.27",
         settings: {
@@ -16,9 +19,16 @@ const config: HardhatUserConfig = {
     networks: {
         hardhat: {
             forking: {
-                url: process.env.MainnetAlchemyAPI || "",
-                blockNumber: 20911501
-            }
+                url: process.env.TenderlyMainnetRPC || "",
+                blockNumber: 21552974,
+            },
+            chains: {
+                12345: {
+                  hardforkHistory: {
+                    cancun: 21552900
+                  }
+                }
+            },
         },
         tenderlyMainnetFork: {
             url: process.env.TenderlyMainnetRPC,

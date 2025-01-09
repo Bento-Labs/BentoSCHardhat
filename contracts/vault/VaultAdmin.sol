@@ -74,27 +74,27 @@ contract VaultAdmin is VaultStorage {
         require(_asset != address(0), "Invalid asset address");
         require(_ltToken != address(0), "Invalid ltToken address");
         // if the asset is not supported, add it to the list
-        if (assets[_asset].ltToken == address(0)) {
+        if (assetToAssetInfo[_asset].ltToken == address(0)) {
             allAssets.push(_asset);
-            assets[_asset].index = uint8(allAssets.length - 1);
+            assetToAssetInfo[_asset].index = uint8(allAssets.length - 1);
         }
         // change the weight and also the total weight
-        uint32 oldWeight = assets[_asset].weight;
+        uint32 oldWeight = assetToAssetInfo[_asset].weight;
         _changeAssetWeight(_asset, oldWeight, _weight);
         
-        Asset storage asset = assets[_asset];
+        AssetInfo storage asset = assetToAssetInfo[_asset];
         asset.ltToken = _ltToken;
         asset.weight = _weight;
         // this is the decimals of the underlying asset
         // we try to get the decimals from onchain source if possible
-        try IERC20Metadata(_ltToken).decimals() returns (uint8 decimals_) {
+        try IERC20Metadata(_asset).decimals() returns (uint8 decimals_) {
             require(decimals_ == _decimals, "Inconsistent decimals input");
             asset.decimals = decimals_;
         } catch {
             asset.decimals = _decimals;
         }
         asset.strategyType = _strategyType;
-        if (_strategyType == StrategyType.Generalized4626) {
+        if (_strategyType == StrategyType.Generalized4626 || _strategyType == StrategyType.Ethena) {
             require(_strategy == address(0), "Generalized4626 type token doesn't require a strategy");
         } else {
             require(_strategy != address(0), "Strategy is required for non-Generalized4626 type tokens");
@@ -111,13 +111,13 @@ contract VaultAdmin is VaultStorage {
      *  _asset: the address of the asset
      */
     function removeAsset(address _asset) external onlyGovernor {
-        require(assets[_asset].ltToken != address(0), "Asset is not supported");
-        _changeAssetWeight(_asset, assets[_asset].weight, 0);
+        require(assetToAssetInfo[_asset].ltToken != address(0), "Asset is not supported");
+        _changeAssetWeight(_asset, assetToAssetInfo[_asset].weight, 0);
         for (uint256 i = 0; i < allAssets.length; i++) {
             if (allAssets[i] == _asset) {
                 allAssets[i] = allAssets[allAssets.length - 1];
                 // since we move the last element to the current position, we need to update the index of the new last element
-                assets[allAssets[i]].index = uint8(i);
+                assetToAssetInfo[allAssets[i]].index = uint8(i);
                 allAssets.pop();
                 break;
             }
@@ -136,7 +136,7 @@ contract VaultAdmin is VaultStorage {
         uint32 _newWeight
     ) internal {
         totalWeight = totalWeight + _newWeight - _oldWeight;
-        assets[_asset].weight = _newWeight;
+        assetToAssetInfo[_asset].weight = _newWeight;
         emit AssetWeightChanged(_asset, _oldWeight, _newWeight);
     }
 }

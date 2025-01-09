@@ -19,4 +19,8 @@ contract EthenaWalletProxy {
         require(msg.sender == bentoUSDVault, "Only bentoUSDVault can call withdraw");
         IStakedUSDe(ethenaVault).cooldownShares(_amount, msg.sender);
     }
+
+    function withdraw(address _recipient) external {
+        IStakedUSDe(ethenaVault).unstake(_recipient);
+    }
 }

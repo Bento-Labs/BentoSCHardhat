@@ -15,7 +15,7 @@ contract VaultStorage {
     using SafeERC20 for IERC20;
 
     // Changed to fit into a single storage slot so the decimals needs to be recached
-    struct Asset {
+    struct AssetInfo {
         address ltToken;
         uint32 weight;
         uint8 decimals;
@@ -39,7 +39,7 @@ contract VaultStorage {
 
     /// @dev mapping of supported vault assets to their configuration
     // slither-disable-next-line uninitialized-state
-    mapping(address => Asset) public assets;
+    mapping(address => AssetInfo) public assetToAssetInfo;
     /// @dev list of all assets supported by the vault.
     // slither-disable-next-line uninitialized-state
     address[] public allAssets;
@@ -47,16 +47,20 @@ contract VaultStorage {
     function getWeights() public view returns (uint32[] memory) {
         uint32[] memory weights = new uint32[](allAssets.length);
         for (uint256 i = 0; i < allAssets.length; i++) {
-            weights[i] = assets[allAssets[i]].weight;
+            weights[i] = assetToAssetInfo[allAssets[i]].weight;
         }
         return weights;
     }
 
-    function getAssets() public view returns (Asset[] memory) {
-        Asset[] memory _assets = new Asset[](allAssets.length);
+    function getAssetInfos() public view returns (AssetInfo[] memory) {
+        AssetInfo[] memory _assets = new AssetInfo[](allAssets.length);
         for (uint256 i = 0; i < allAssets.length; i++) {
-            _assets[i] = assets[allAssets[i]];
+            _assets[i] = assetToAssetInfo[allAssets[i]];
         }
         return _assets;
+    }
+
+    function getAllAssets() public view returns (address[] memory) {
+        return allAssets;
     }
 }

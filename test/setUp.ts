@@ -1,18 +1,23 @@
 import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import { addresses } from "../scripts/addresses";
 import { 
   VaultCore, 
   BentoUSD, 
   OracleRouter, 
-  Generalized4626Strategy,
-  EthenaStrategy,
   IERC20,
-  IERC4626
-} from "../../typechain-types";
+  IERC4626,
+  BentoUSDPlus,
+  UpgradableProxy
+} from "../typechain-types";
+
 
 export interface VaultFixture {
+  vaultCore: VaultCore;
+  vaultImpl: VaultCore;
   vault: VaultCore;
   bentoUSD: BentoUSD;
+  bentoUSDPlus: BentoUSDPlus;
   oracle: OracleRouter;
   owner: HardhatEthersSigner;
   user1: HardhatEthersSigner;
@@ -29,173 +34,191 @@ export interface VaultFixture {
     sUSDT: IERC4626;
     sUSDe: IERC4626;
   };
-  strategies: {
-    USDC: Generalized4626Strategy;
-    DAI: Generalized4626Strategy;
-    USDT: Generalized4626Strategy;
-    USDe: EthenaStrategy;
-  };
 }
 
 export async function deployVaultFixture(): Promise<VaultFixture> {
-  // Get signers
   const [owner, user1, user2] = await ethers.getSigners();
 
-  // Deploy BentoUSD
+  // Deploy BentoUSD with all constructor parameters
   const BentoUSD = await ethers.getContractFactory("BentoUSD");
-  const bentoUSD = await BentoUSD.deploy();
-  await bentoUSD.initialize("BentoUSD", "BUSD", owner.address);
+  let bentoUSD = await BentoUSD.deploy(
+    "BentoUSD",           // name
+    "BUSD",              // symbol
+    owner.address,       // owner
+    owner.address        // delegate
+  ) as BentoUSD;
+
+  bentoUSD = await ethers.getContractAt("BentoUSD", await bentoUSD.getAddress()) as BentoUSD;
 
   // Deploy Oracle
   const OracleRouter = await ethers.getContractFactory("OracleRouter");
-  const oracle = await OracleRouter.deploy(owner.address);
+  let oracle = await OracleRouter.deploy(owner.address);
+  oracle = await ethers.getContractAt("OracleRouter", await oracle.getAddress()) as OracleRouter;
+  // Deploy VaultCore implementation and proxy
+  const VaultCoreFactory = await ethers.getContractFactory("VaultCore");
+  const vaultImpl = await VaultCoreFactory.deploy();
 
-  // Deploy Vault
-  const VaultCore = await ethers.getContractFactory("VaultCore");
-  const vault = await VaultCore.deploy();
-  await vault.initialize(owner.address);
+  // Deploy VaultCore proxy
+  const vaultData = vaultImpl.interface.encodeFunctionData("initialize", [owner.address]);
+  const UpgradableProxy = await ethers.getContractFactory("UpgradableProxy");
+  const vaultProxy = await UpgradableProxy.deploy(
+    owner.address,
+    await vaultImpl.getAddress(),
+    vaultData,
+    10,
+    true
+  );
+
+  // Get vault instance through proxy
+  const vault = await ethers.getContractAt("VaultCore", await vaultProxy.getAddress()) as VaultCore;
+
+  // Update BentoUSD vault address to the proxy
+  await bentoUSD.setBentoUSDVault(await vaultProxy.getAddress());
 
   // Set BentoUSD and Oracle in Vault
   await vault.setBentoUSD(await bentoUSD.getAddress());
   await vault.setOracleRouter(await oracle.getAddress());
 
-  // Deploy mock tokens and their yield-bearing versions
-  const MockToken = await ethers.getContractFactory("MockERC20");
-  const MockYieldToken = await ethers.getContractFactory("MockERC4626");
-
-  // Deploy USDC and sUSDC
-  const USDC = await MockToken.deploy("USD Coin", "USDC", 6);
-  const sUSDC = await MockYieldToken.deploy(
-    await USDC.getAddress(),
-    "Staked USDC",
-    "sUSDC"
-  );
-
-  // Deploy DAI and sDAI
-  const DAI = await MockToken.deploy("Dai Stablecoin", "DAI", 18);
-  const sDAI = await MockYieldToken.deploy(
-    await DAI.getAddress(),
-    "Staked DAI",
-    "sDAI"
-  );
-
-  // Deploy USDT and sUSDT
-  const USDT = await MockToken.deploy("Tether USD", "USDT", 6);
-  const sUSDT = await MockYieldToken.deploy(
-    await USDT.getAddress(),
-    "Staked USDT",
-    "sUSDT"
-  );
-
-  // Deploy USDe and sUSDe
-  const USDe = await MockToken.deploy("Ethena USDe", "USDe", 18);
-  const sUSDe = await MockYieldToken.deploy(
-    await USDe.getAddress(),
-    "Staked USDe",
-    "sUSDe"
-  );
-
-  // Deploy strategies
-  const Generalized4626Strategy = await ethers.getContractFactory("Generalized4626Strategy");
-  const EthenaStrategy = await ethers.getContractFactory("EthenaStrategy");
-
-  const strategies = {
-    USDC: await Generalized4626Strategy.deploy(
-      await USDC.getAddress(),
-      await sUSDC.getAddress(),
-      await vault.getAddress()
-    ),
-    DAI: await Generalized4626Strategy.deploy(
-      await DAI.getAddress(),
-      await sDAI.getAddress(),
-      await vault.getAddress()
-    ),
-    USDT: await Generalized4626Strategy.deploy(
-      await USDT.getAddress(),
-      await sUSDT.getAddress(),
-      await vault.getAddress()
-    ),
-    USDe: await EthenaStrategy.deploy(
-      await USDe.getAddress(),
-      await sUSDe.getAddress(),
-      await vault.getAddress()
-    )
+  // Get existing tokens
+  const assets = {
+    USDC: await ethers.getContractAt("IERC20", addresses.mainnet.USDC),
+    DAI: await ethers.getContractAt("IERC20", addresses.mainnet.DAI),
+    USDT: await ethers.getContractAt("IERC20", addresses.mainnet.USDT),
+    USDe: await ethers.getContractAt("IERC20", addresses.mainnet.USDe)
   };
 
-  // Set up assets in vault
-  const weights = {
-    USDC: 2500, // 25%
-    DAI: 2500,  // 25%
-    USDT: 2500, // 25%
-    USDe: 2500  // 25%
+  const ltTokens = {
+    sUSDC: await ethers.getContractAt("IERC4626", addresses.mainnet.sUSDC),
+    sDAI: await ethers.getContractAt("IERC4626", addresses.mainnet.sDAI),
+    sUSDT: await ethers.getContractAt("IERC4626", addresses.mainnet.sUSDT),
+    sUSDe: await ethers.getContractAt("IERC4626", addresses.mainnet.sUSDe)
   };
 
-  // Add assets to vault
+  // Deploy BentoUSDPlus
+  const BentoUSDPlus = await ethers.getContractFactory("BentoUSDPlus");
+  const bentoUSDPlus = await BentoUSDPlus.deploy(await bentoUSD.getAddress());
+
+  // Set up assets in vault with weights
+  const DAIWeight = 250;
+  const USDCWeight = 375;
+  const USDTWeight = 125;
+  const USDeWeight = 250;
+
   await vault.setAsset(
-    await USDC.getAddress(),
+    addresses.mainnet.USDC,
     6,
-    weights.USDC,
-    await sUSDC.getAddress(),
+    USDCWeight,
+    addresses.mainnet.sUSDC,
     0, // Generalized4626
-    await strategies.USDC.getAddress(),
+    ethers.ZeroAddress,
     ethers.parseUnits("1000", 6)
   );
 
   await vault.setAsset(
-    await DAI.getAddress(),
+    addresses.mainnet.DAI,
     18,
-    weights.DAI,
-    await sDAI.getAddress(),
-    0, // Generalized4626
-    await strategies.DAI.getAddress(),
+    DAIWeight,
+    addresses.mainnet.sDAI,
+    0,
+    ethers.ZeroAddress,
     ethers.parseEther("1000")
   );
 
   await vault.setAsset(
-    await USDT.getAddress(),
+    addresses.mainnet.USDT,
     6,
-    weights.USDT,
-    await sUSDT.getAddress(),
-    0, // Generalized4626
-    await strategies.USDT.getAddress(),
+    USDTWeight,
+    addresses.mainnet.sUSDT,
+    0,
+    ethers.ZeroAddress,
     ethers.parseUnits("1000", 6)
   );
 
   await vault.setAsset(
-    await USDe.getAddress(),
+    addresses.mainnet.USDe,
     18,
-    weights.USDe,
-    await sUSDe.getAddress(),
+    USDeWeight,
+    addresses.mainnet.sUSDe,
     1, // Ethena
-    await strategies.USDe.getAddress(),
+    ethers.ZeroAddress,
     ethers.parseEther("1000")
   );
 
-  // Set up oracle prices (1:1 for stablecoins)
-  await oracle.setPrice(await USDC.getAddress(), ethers.parseEther("1"));
-  await oracle.setPrice(await DAI.getAddress(), ethers.parseEther("1"));
-  await oracle.setPrice(await USDT.getAddress(), ethers.parseEther("1"));
-  await oracle.setPrice(await USDe.getAddress(), ethers.parseEther("1"));
+  // Set up oracle price feeds
+  await oracle.addFeed(
+    addresses.mainnet.DAI,
+    addresses.mainnet.DAI_USD_FEED,
+    86400, // 1 day staleness
+    8     // decimals
+  );
+
+  await oracle.addFeed(
+    addresses.mainnet.USDC,
+    addresses.mainnet.USDC_USD_FEED,
+    86400,
+    8
+  );
+
+  await oracle.addFeed(
+    addresses.mainnet.USDT,
+    addresses.mainnet.USDT_USD_FEED,
+    86400,
+    8
+  );
+
+  await oracle.addFeed(
+    addresses.mainnet.USDe,
+    addresses.mainnet.USDe_USD_FEED,
+    86400,
+    8
+  );
 
   return {
+    vaultCore: await ethers.getContractAt("VaultCore", await vaultProxy.getAddress()),
+    vaultImpl,
     vault,
     bentoUSD,
+    bentoUSDPlus,
     oracle,
     owner,
     user1,
     user2,
-    assets: {
-      USDC,
-      DAI,
-      USDT,
-      USDe
-    },
-    ltTokens: {
-      sUSDC,
-      sDAI,
-      sUSDT,
-      sUSDe
-    },
-    strategies
+    assets,
+    ltTokens
   };
 }
+
+const toBytes32 = (bn: bigint) => {
+    // make sure that the number is a bigint
+    const _bn = ethers.toBigInt(bn);
+    return ethers.zeroPadValue("0x" + _bn.toString(16), 32);
+  };
+
+export async function setERC20Balance(tokenAddress: string, account: string, balance: bigint) {
+    // The storage slot for the balances mapping in a standard ERC20 contract
+    const slotIndex = 0; // This is usually 0, but verify with your contract
+  
+    // Calculate the storage slot
+    const slot = ethers.solidityPackedKeccak256(
+      ["address", "uint256"],
+      [account, slotIndex]
+    );
+
+
+  
+    // Set the balance
+    await ethers.provider.send("hardhat_setStorageAt", [
+      tokenAddress,
+      slot,
+      toBytes32(balance)
+    ]);
+  }
+
+  export function normalizeDecimals(assetDecimals: bigint, amount: bigint) {
+    if (assetDecimals < 18) {
+      return amount / BigInt(10 ** (Number(18) - Number(assetDecimals)));
+    } else if (assetDecimals > 18) {
+      return amount * BigInt(10 ** (Number(assetDecimals) - Number(18)));
+    }
+    return amount;
+  }

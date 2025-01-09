@@ -24,4 +24,6 @@ interface IStrategy {
      * @dev Liquidate all assets in strategy and return them to Vault.
      */
     function withdrawAll() external;
+    function convertToShares(uint256 _amount) external returns (uint256);
+    function redeem(address _recipient, uint256 _amount) external;
 }

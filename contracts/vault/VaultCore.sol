@@ -13,7 +13,8 @@ import {BentoUSD} from "../BentoUSD.sol";
 import {IStrategy} from "../interfaces/IStrategy.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
-
+import {EthenaWalletProxyManager} from "./EthenaWalletProxyManager.sol";
+import {EthenaWalletProxy} from "../utils/EthenaWalletProxy.sol";
 /**
  * @title VaultCore
  * @notice Core vault implementation for BentoUSD stablecoin system
@@ -106,7 +107,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
         for (uint256 i = 0; i < allAssets.length; i++) {
             address assetAddress = allAssets[i];
-            address ltToken = assets[assetAddress].ltToken;
+            address ltToken = assetToAssetInfo[assetAddress].ltToken;
             require(IERC20(ltToken).balanceOf(address(this)) >= ltAmounts[i], "VaultCore: insufficient LT tokens in vault");
             IERC20(ltToken).safeTransfer(msg.sender, ltAmounts[i]);
         }
@@ -129,7 +130,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         address[] calldata _routers,
         bytes[] calldata _routerData
     ) internal virtual {
-        require(assets[_asset].isSupported, "Asset is not supported");
+        require(assetToAssetInfo[_asset].ltToken != address(0), "Asset is not supported");
         require(_amount > 0, "Amount must be greater than 0");
         require(
             _routerData.length == allAssets.length,
@@ -148,7 +149,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             address assetAddress = allAssets[i];
             // we only trade into assets that are not the asset we are depositing
             if (assetAddress != _asset) {
-                Asset memory asset = assets[assetAddress];
+                AssetInfo memory asset = assetToAssetInfo[assetAddress];
                 // get the balance of the asset before the trade
                 uint256 balanceBefore = IERC20(assetAddress).balanceOf(
                     address(this)
@@ -217,34 +218,43 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         // if not enough, we try to exchange the yield-bearing token to the underlying stable token
         for (uint256 i = 0; i < allAssetsLength; i++) {
             address assetAddress = allAssets[i];
-            address assetInfo = assets[assetAddress];
+            AssetInfo memory assetInfo = assetToAssetInfo[assetAddress];
             uint256 adjustedPrice = adjustPrice(IOracle(oracleRouter).price(assetAddress), true);
             uint256 amountToRedeem = (_amount *
                 assetInfo.weight *
                 1e18) / (totalWeight * adjustedPrice);
             // get the buffer balance
             uint256 amountInBuffer = IERC20(assetAddress).balanceOf(address(this));
+            // we burn the BentoUSD tokens
             BentoUSD(bentoUSD).burn(msg.sender, _amount);
             if (amountInBuffer >= amountToRedeem) {
                 // if the buffer has enough, we can just transfer the amount to the user
                 IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
             } else {
-                missingAmount = amountToRedeem - amountInBuffer;
+                // the missing amount is in underlying assets
+                uint256 missingAmount = amountToRedeem - amountInBuffer;
                 address ltToken = assetInfo.ltToken;
                 if (assetInfo.strategyType == StrategyType.Generalized4626) {
                     // for ERC4626-compliant LTs we can withdraw directly
                     IERC4626(ltToken).withdraw(missingAmount, msg.sender, msg.sender);
                     IERC20(assetAddress).safeTransfer(msg.sender, amountToRedeem);
                 } else if (assetInfo.strategyType == StrategyType.Ethena) {
+                    // the ethena wallet proxy corresponding to _recipient
+                    address ethenaWalletProxy = userToEthenaWalletProxy[msg.sender];
+                    if (ethenaWalletProxy == address(0)) {
+                        ethenaWalletProxy = address(new EthenaWalletProxy(ltToken, address(this)));
+                        userToEthenaWalletProxy[msg.sender] = ethenaWalletProxy;
+                    }
                     // we cannot withdraw yet, here we just start the unbonding period
-                    commitWithdraw(msg.sender, missingAmount);
+                    commitWithdraw(msg.sender, missingAmount, ethenaWalletProxy);
                 } else {
                     // for other types of LTs we perform the logics through a specialized strategy contract
                     // we need to send LTs to this strategy contract first
                     address strategy = assetInfo.strategy;
-                    address missingAmountInLT = IStrategy(strategy).convertToShares(missingAmount);
+                    uint256 missingAmountInLT = IStrategy(strategy).convertToShares(missingAmount);
                     IERC20(ltToken).safeTransfer(strategy, missingAmountInLT);
                     IStrategy(strategy).redeem(msg.sender, missingAmountInLT);
+                    // the transfer of underlying assets to the user is done in the strategy contract
                 }
             }
         }
@@ -259,7 +269,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         for (uint256 i = 0; i < allAssetsLength; ++i) {
             IERC20 asset = IERC20(allAssets[i]);
             uint256 assetBalance = asset.balanceOf(address(this));
-            Asset memory assetInfo = assets[allAssets[i]];
+            AssetInfo memory assetInfo = assetToAssetInfo[allAssets[i]];
             uint256 minimalAmount = assetInfo.minimalAmountInVault;
             if (assetBalance < minimalAmount) continue;
             // Multiply the balance by the vault buffer modifier and truncate
@@ -280,7 +290,6 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                 );
             }
         }
-    }
 
     // === Public/External View Functions ===
 
@@ -301,7 +310,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             if (assetPrice > 1e18) {
                 assetPrice = 1e18;
             }
-            relativeWeights[i] = assets[assetAddress].weight * assetPrice;
+            relativeWeights[i] = assetToAssetInfo[assetAddress].weight * assetPrice;
             totalRelativeWeight += relativeWeights[i];
         }
         uint256 totalAmount = 0;
@@ -319,7 +328,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         address priceOracle = oracleRouter;
         for (uint256 i = 0; i < allAssets.length; i++) {
             address asset = allAssets[i];
-            Asset memory assetInfo = assets[asset];
+            AssetInfo memory assetInfo = assetToAssetInfo[asset];
             // first we calculate the amount corresponding to the asset in USD 
             uint256 partialInputAmount = (inputAmount * assetInfo.weight) / totalWeight;
             uint256 adjustedPrice = adjustPrice(IOracle(priceOracle).price(asset), true);
@@ -335,7 +344,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         address asset,
         address ltToken
     ) public view returns (uint256) {
-        uint256 normalizedAmount = normalizeDecimals(assets[asset].decimals, amount);
+        uint256 normalizedAmount = normalizeDecimals(assetToAssetInfo[asset].decimals, amount);
         return IERC4626(ltToken).convertToShares(normalizedAmount);
     }
 
@@ -347,7 +356,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             uint256 balance = IERC20(asset).balanceOf(address(this));
             
             // Get LT token balance and convert to underlying
-            address ltToken = assets[asset].ltToken;
+            address ltToken = assetToAssetInfo[asset].ltToken;
             uint256 ltBalance = IERC20(ltToken).balanceOf(address(this));
             uint256 underlyingBalance = IERC4626(ltToken).convertToAssets(ltBalance);
             
@@ -367,7 +376,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256[] memory ratios = new uint256[](allAssetsLength);
         for (uint256 i = 0; i < allAssetsLength; i++) {
             address tokenAddress = allAssets[i];
-            address ltToken = assets[allAssets[i]].ltToken;
+            address ltToken = assetToAssetInfo[allAssets[i]].ltToken;
             uint256 unit = 10 ** IERC20Metadata(tokenAddress).decimals();
             ratios[i] = IERC4626(ltToken).convertToShares(unit);
         }
