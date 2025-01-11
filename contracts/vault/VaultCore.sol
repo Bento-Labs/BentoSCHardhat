@@ -316,12 +316,13 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      */
     function getDepositAssetAmounts(uint256 desiredAmount) public view returns (uint256[] memory, uint256) {
         uint256 numberOfAssets = allAssets.length;
+        // the relative weights also take into account the price of the asset
         uint256[] memory relativeWeights = new uint256[](numberOfAssets);
         uint256[] memory amounts = new uint256[](numberOfAssets);
         uint256 totalRelativeWeight = 0;
         for (uint256 i = 0; i < numberOfAssets; i++) {
             address assetAddress = allAssets[i];
-
+            // we round it upwards to avoid rounding errors detrimental for the protocol
             uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
             if (assetPrice > 1e18) {
                 assetPrice = 1e18;
@@ -331,14 +332,15 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         }
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < numberOfAssets; i++) {
-            // we round it upwards to avoid rounding errors detrimental for the protocol
+            // here the amount[i] has 18 decimals (because bentoUSD has 18 decimals)
             amounts[i] = (desiredAmount * relativeWeights[i]) / totalRelativeWeight;
             totalAmount += amounts[i];
-            amounts[i] = normalizeDecimals(IERC20Metadata(allAssets[i]).decimals(), amounts[i]);
+            // we need to scale it to the decimals of the asset
+            amounts[i] = scaleDecimals(amounts[i], 18, IERC20Metadata(allAssets[i]).decimals());
         }
         return (amounts, totalAmount);
     }
-
+    /* Calculate the amount of LTs to withdraw for a given amount of BentoUSD */
     function getOutputLTAmounts(uint256 inputAmount) public view returns (uint256[] memory) {
         uint256[] memory amounts = new uint256[](allAssets.length);
         address priceOracle = oracleRouter;
@@ -346,22 +348,15 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             address asset = allAssets[i];
             AssetInfo memory assetInfo = assetToAssetInfo[asset];
             // first we calculate the amount corresponding to the asset in USD 
+            // the amount has 18 decimals (because bentoUSD has 18 decimals)
             uint256 partialInputAmount = (inputAmount * assetInfo.weight) / totalWeight;
             uint256 adjustedPrice = adjustPrice(IOracle(priceOracle).price(asset), true);
-            uint256 normalizedAmount = normalizeDecimals(assetInfo.decimals, partialInputAmount * 1e18 / adjustedPrice);
-            amounts[i] = convertToLTAmount(normalizedAmount, asset, assetInfo.ltToken);
+            // we need to scale it to the decimals of the asset
+            uint256 normalizedAmount = scaleDecimals(partialInputAmount * 1e18 / adjustedPrice, 18, IERC20Metadata(asset).decimals());
+            address ltToken = assetInfo.ltToken;
+            amounts[i] = IERC4626(ltToken).convertToShares(normalizedAmount);
         }
         return amounts;
-    }
-
-
-    function convertToLTAmount(
-        uint256 amount,
-        address asset,
-        address ltToken
-    ) public view returns (uint256) {
-        uint256 normalizedAmount = normalizeDecimals(assetToAssetInfo[asset].decimals, amount);
-        return IERC4626(ltToken).convertToShares(normalizedAmount);
     }
 
 /*     function getTotalValue() public view returns (uint256) {
@@ -403,18 +398,19 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     }
 
     /**
-     * @notice Scale the amount to 18 decimals, assuming that the current decimals are "assetDecimals"
-     * @param assetDecimals The current decimals of the asset
+     * @notice Scale the amount with "from" decimals to an amount with "to" decimals
      * @param amount The amount to scale
-     * @return 
+     * @param from The current decimals of the asset
+     * @param to The target decimals
+     * @return The scaled amount
      */
-    function normalizeDecimals(uint8 assetDecimals, uint256 amount) internal pure returns (uint256) {
-        if (assetDecimals < 18) {
+    function scaleDecimals(uint256 amount, uint8 from, uint8 to) internal pure returns (uint256) {
+        if (from < to) {
             // if the asset has less than 18 decimals, we add 0s to the end
-            return amount * 10 ** (18 - assetDecimals);
-        } else if (assetDecimals > 18) {
+            return amount * 10 ** (to - from);
+        } else if (from > to) {
             // if the asset has more than 18 decimals, we remove the extra decimals
-            return amount / 10 ** (assetDecimals - 18);
+            return amount / 10 ** (from - to);
         }
         return amount;
     }
