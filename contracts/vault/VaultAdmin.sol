@@ -14,6 +14,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import "./VaultStorage.sol";
+import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
 
 contract VaultAdmin is VaultStorage {
     using SafeERC20 for IERC20;
@@ -35,7 +36,7 @@ contract VaultAdmin is VaultStorage {
     ****************************************/
 
     modifier onlyGovernor() {
-        require(msg.sender == governor, "Only governor can call this function");
+        require(msg.sender == governor, "1");
         _;
     }
 
@@ -71,8 +72,8 @@ contract VaultAdmin is VaultStorage {
         uint256 _minimalAmountInVault
     ) external onlyGovernor {
 
-        require(_asset != address(0), "Invalid asset address");
-        require(_ltToken != address(0), "Invalid ltToken address");
+        require(_asset != address(0), "3");
+        require(_ltToken != address(0), "4");
         // if the asset is not supported, add it to the list
         if (assetToAssetInfo[_asset].ltToken == address(0)) {
             allAssets.push(_asset);
@@ -88,19 +89,19 @@ contract VaultAdmin is VaultStorage {
         // this is the decimals of the underlying asset
         // we try to get the decimals from onchain source if possible
         try IERC20Metadata(_asset).decimals() returns (uint8 decimals_) {
-            require(decimals_ == _decimals, "Inconsistent decimals input");
+            require(decimals_ == _decimals, "2");
             asset.decimals = decimals_;
         } catch {
             asset.decimals = _decimals;
         }
         asset.strategyType = _strategyType;
         if (_strategyType == StrategyType.Generalized4626 || _strategyType == StrategyType.Ethena) {
-            require(_strategy == address(0), "Generalized4626 type token doesn't require a strategy");
+            require(_strategy == address(0), "6");
         } else {
-            require(_strategy != address(0), "Strategy is required for non-Generalized4626 type tokens");
+            require(_strategy != address(0), "7");
         }
         if (_strategyType != StrategyType.Other) {
-            require(IERC4626(_ltToken).asset() == _asset, "Underlying asset mismatch");
+            require(IERC4626(_ltToken).asset() == _asset, "8");
         }
         asset.minimalAmountInVault = _minimalAmountInVault;
 
@@ -111,7 +112,7 @@ contract VaultAdmin is VaultStorage {
      *  _asset: the address of the asset
      */
     function removeAsset(address _asset) external onlyGovernor {
-        require(assetToAssetInfo[_asset].ltToken != address(0), "Asset is not supported");
+        require(assetToAssetInfo[_asset].ltToken != address(0), "9");
         _changeAssetWeight(_asset, assetToAssetInfo[_asset].weight, 0);
         for (uint256 i = 0; i < allAssets.length; i++) {
             if (allAssets[i] == _asset) {

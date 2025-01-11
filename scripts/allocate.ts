@@ -1,19 +1,19 @@
 import { ethers } from "hardhat";
-import { VaultCore } from "../typechain-types";
-
+import { VaultCore, VaultInspector } from "../typechain-types";
+import { IERC20Metadata } from "../typechain-types";
 async function main() {
   // Get signer
   const [signer] = await ethers.getSigners();
   console.log("Signer address:", signer.address);
 
   // Contract addresses
-  const vaultAddress = "0x11E5eAD5844d54E4cBa42E4b9037d62019D9668d";
+  const vaultAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
   
   // Get contract instance
   const vault = await ethers.getContractAt("VaultCore", vaultAddress) as VaultCore;
 
   // Print supported assets
-  const vaultAssets = await vault.getAssets();
+  const vaultAssets = await vault.getAssetInfos();
   console.log("\n=== Supported Assets ===");
   
   for (let i = 0; i < vaultAssets.length; i++) {
@@ -48,7 +48,7 @@ async function main() {
     console.log("Successfully allocated assets");
 
     // Print asset balances after allocation
-    const assets = await vault.getAssets();
+    const assets = await vault.getAllAssets();
     console.log("\n=== Asset Balances After Allocation ===");
     
     for (let i = 0; i < vaultAssets.length; i++) {

@@ -8,8 +8,8 @@ async function main() {
   const transferImplementation = true;
 
   // Contract addresses
-  const proxyAddress = "0xb120d26E6e36cE295Ec520c9d776EBBAeaf4436a";
-  let newImplementationAddress = "0x4Afb649AE3b588608e218972A8a7AfD84DfD8D5d";
+  const proxyAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
+  let newImplementationAddress = "0x03C5f20dACf35dD6B3874d7152Cc5112367acc2F";
 
   // Get signer
   const [signer] = await ethers.getSigners();

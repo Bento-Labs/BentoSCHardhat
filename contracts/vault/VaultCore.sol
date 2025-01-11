@@ -15,6 +15,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {EthenaWalletProxyManager} from "./EthenaWalletProxyManager.sol";
 import {EthenaWalletProxy} from "../utils/EthenaWalletProxy.sol";
+import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
 /**
  * @title VaultCore
  * @notice Core vault implementation for BentoUSD stablecoin system
@@ -47,7 +48,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     // === External State-Changing Functions ===
     
     function initialize(address _governor) public initializer {
-        require(_governor != address(0), "Governor cannot be zero address");
+        require(_governor != address(0), "1");
         governor = _governor;
     }
 
@@ -60,7 +61,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      * @param _routers Array of DEX router addresses for swaps
      * @param _routerData Encoded swap data for each router
      */
-    function mint(
+    /* function mint(
         address _recipient,
         address _asset,
         uint256 _amount,
@@ -69,7 +70,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         bytes[] calldata _routerData
     ) external {
         _mint(_recipient, _asset, _amount, _minimumBentoUSDAmount, _routers, _routerData);
-    }
+    } */
 
     /**
      * @notice Mints BentoUSD by depositing a proportional basket of all supported assets
@@ -90,9 +91,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             totalAmount > _minimumBentoUSDAmount,
             string(
                 abi.encodePacked(
-            "VaultCore: price deviation too high. Total value: ",
+            "2",
             Strings.toString(totalAmount),
-            ", Minimum required: ",
+            ",",
                     Strings.toString(_minimumBentoUSDAmount)
                 )
             )
@@ -107,12 +108,12 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      */
     function redeemLTBasket(address _recipient, uint256 _amount) external {
         uint256[] memory ltAmounts = getOutputLTAmounts(_amount);
-        require(IERC20(bentoUSD).balanceOf(msg.sender) >= _amount, "VaultCore: insufficient BentoUSD in user's wallet");
+        require(IERC20(bentoUSD).balanceOf(msg.sender) >= _amount, "3");
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
         for (uint256 i = 0; i < allAssets.length; i++) {
             address assetAddress = allAssets[i];
             address ltToken = assetToAssetInfo[assetAddress].ltToken;
-            require(IERC20(ltToken).balanceOf(address(this)) >= ltAmounts[i], "VaultCore: insufficient LT tokens in vault");
+            require(IERC20(ltToken).balanceOf(address(this)) >= ltAmounts[i], "4");
             IERC20(ltToken).safeTransfer(_recipient, ltAmounts[i]);
         }
     }
@@ -131,7 +132,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
 
     // === Internal State-Changing Functions ===
 
-    function _mint(
+    /* function _mint(
         address _recipient,
         address _asset,
         uint256 _amount,
@@ -139,11 +140,11 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         address[] calldata _routers,
         bytes[] calldata _routerData
     ) internal virtual {
-        require(assetToAssetInfo[_asset].ltToken != address(0), "Asset is not supported");
-        require(_amount > 0, "Amount must be greater than 0");
+        require(assetToAssetInfo[_asset].ltToken != address(0), "9");
+        require(_amount > 0, "1");
         require(
             _routerData.length == allAssets.length,
-            "Invalid router data length"
+            "5"
         );
 
         // store total weight into a memory variable to save gas
@@ -190,7 +191,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                     expectedOutputAmount;
                 require(
                     deviationPercentage < deviationTolerance,
-                    "VaultCore: deviation from desired weights too high"
+                    "6"
                 );
                 totalValueOfBasket += (outputAmount * assetPrice) / 1e18;
             } else {
@@ -203,23 +204,23 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             totalValueOfBasket > _minimumBentoUSDAmount,
             string(
                 abi.encodePacked(
-                    "VaultCore: price deviation too high. Total value: ",
+                    "7",
                     Strings.toString(totalValueOfBasket),
-                    ", Minimum required: ",
+                    ",",
                     Strings.toString(_minimumBentoUSDAmount)
                 )
             )
         );
         BentoUSD(bentoUSD).mint(_recipient, totalValueOfBasket);
-    }
+    } */
 
-    function _swap(address _router, bytes calldata _routerData) internal {
+/*     function _swap(address _router, bytes calldata _routerData) internal {
         (bool success, bytes memory _data) = _router.call(_routerData);
         if (!success) {
             if (_data.length > 0) revert SwapFailed(string(_data));
-            else revert SwapFailed("Unknown reason");
+            else revert SwapFailed("8");
         }
-    }
+    } */
 
     function _redeemUnderlyingBasket(address _recipient, uint256 _amount) internal {
         uint256 allAssetsLength = allAssets.length;
@@ -269,9 +270,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         }
     }
 
-    function _redeemWithWaitingPeriod(uint256 _amount) internal {
+/*     function _redeemWithWaitingPeriod(uint256 _amount) internal {
         revert("VaultCore: redeemWithWaitingPeriod is not implemented");
-    }
+    } */
 
     function _allocate() internal virtual {
         uint256 allAssetsLength = allAssets.length;
@@ -288,7 +289,13 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             // if the strategy is a generalized 4626 or ethena, we deposit into the lt token directly
             // otherwise we deposit into the strategy proxy
             if (assetInfo.strategyType == StrategyType.Generalized4626 || assetInfo.strategyType == StrategyType.Ethena) {
-                IERC4626(assetInfo.ltToken).deposit(allocateAmount, address(this));
+                address ltToken = assetInfo.ltToken;
+                // if the asset is USDT, we need to set the allowance to 0 first
+                if (address(asset) == 0xdAC17F958D2ee523a2206206994597C13D831ec7) {
+                    asset.safeApprove(ltToken, 0);
+                } 
+                asset.safeApprove(ltToken, allocateAmount);
+                IERC4626(ltToken).deposit(allocateAmount, address(this));
             } else {
                 IStrategy(assetInfo.strategy).deposit(allocateAmount);
             }
@@ -357,7 +364,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         return IERC4626(ltToken).convertToShares(normalizedAmount);
     }
 
-    function getTotalValue() public view returns (uint256) {
+/*     function getTotalValue() public view returns (uint256) {
         uint256 totalValue = 0;
         for (uint256 i = 0; i < allAssets.length; i++) {
             address asset = allAssets[i];
@@ -377,20 +384,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             totalValue += (totalBalance * assetPrice) / 1e18;
         }
         return totalValue;
-    }
+    } */
 
-    // what is the purpose of this function?
-    function getTokenToShareRatios() public view returns (uint256[] memory) {
-        uint256 allAssetsLength = allAssets.length;
-        uint256[] memory ratios = new uint256[](allAssetsLength);
-        for (uint256 i = 0; i < allAssetsLength; i++) {
-            address tokenAddress = allAssets[i];
-            address ltToken = assetToAssetInfo[allAssets[i]].ltToken;
-            uint256 unit = 10 ** IERC20Metadata(tokenAddress).decimals();
-            ratios[i] = IERC4626(ltToken).convertToShares(unit);
-        }
-        return ratios;
-    }
+
 
     // === Internal Pure Functions ===
     function adjustPrice(uint256 price, bool redeemFlag) internal pure returns (uint256) {
@@ -406,11 +402,19 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         return price;
     }
 
+    /**
+     * @notice Scale the amount to 18 decimals, assuming that the current decimals are "assetDecimals"
+     * @param assetDecimals The current decimals of the asset
+     * @param amount The amount to scale
+     * @return 
+     */
     function normalizeDecimals(uint8 assetDecimals, uint256 amount) internal pure returns (uint256) {
         if (assetDecimals < 18) {
-            return amount / 10 ** (18 - assetDecimals);
+            // if the asset has less than 18 decimals, we add 0s to the end
+            return amount * 10 ** (18 - assetDecimals);
         } else if (assetDecimals > 18) {
-            return amount * 10 ** (assetDecimals - 18);
+            // if the asset has more than 18 decimals, we remove the extra decimals
+            return amount / 10 ** (assetDecimals - 18);
         }
         return amount;
     }

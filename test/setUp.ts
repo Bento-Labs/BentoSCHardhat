@@ -3,6 +3,7 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { addresses } from "../scripts/addresses";
 import { 
   VaultCore, 
+  VaultInspector,
   BentoUSD, 
   OracleRouter, 
   IERC20,
@@ -16,6 +17,7 @@ export interface VaultFixture {
   vaultCore: VaultCore;
   vaultImpl: VaultCore;
   vault: VaultCore;
+  vaultInspector: VaultInspector;
   bentoUSD: BentoUSD;
   bentoUSDPlus: BentoUSDPlus;
   oracle: OracleRouter;
@@ -61,6 +63,7 @@ export async function deployVaultFixture(): Promise<VaultFixture> {
   // Deploy VaultCore proxy
   const vaultData = vaultImpl.interface.encodeFunctionData("initialize", [owner.address]);
   const UpgradableProxy = await ethers.getContractFactory("UpgradableProxy");
+  // this vaultProxy has proxy related functions
   const vaultProxy = await UpgradableProxy.deploy(
     owner.address,
     await vaultImpl.getAddress(),
@@ -69,8 +72,11 @@ export async function deployVaultFixture(): Promise<VaultFixture> {
     true
   );
 
-  // Get vault instance through proxy
+  // Get vault instance with functions from the implementation
   const vault = await ethers.getContractAt("VaultCore", await vaultProxy.getAddress()) as VaultCore;
+
+  const VaultInspectorFactory = await ethers.getContractFactory("VaultInspector");
+  const vaultInspector = await VaultInspectorFactory.deploy(await vault.getAddress());
 
   // Update BentoUSD vault address to the proxy
   await bentoUSD.setBentoUSDVault(await vaultProxy.getAddress());
@@ -177,6 +183,7 @@ export async function deployVaultFixture(): Promise<VaultFixture> {
     vaultCore: await ethers.getContractAt("VaultCore", await vaultProxy.getAddress()),
     vaultImpl,
     vault,
+    vaultInspector,
     bentoUSD,
     bentoUSDPlus,
     oracle,

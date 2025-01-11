@@ -8,8 +8,6 @@ async function main() {
   const setOracleRouter = true;
   const setAssets = true;
   const setAssetPriceFeeds = true;
-  const deployStrategies = true;
-  const setAssetStrategies = true;
   const setLTToken = false;
 
   // Get signer
@@ -17,9 +15,9 @@ async function main() {
   const owner = signer.address;
 
   // Contract addresses
-  const vaultAddress = "0x6ae08082387AaBcA74830054B1f3ba8a0571F9c6";
-  const bentoUSDAddress = "0xE133Db4B5D0a6c69F05452E294de809e5b59e5f5";
-  const oracleRouterAddress = "0x6BfB50ce7f9D383b713A399f453AF8290cf14a74";
+  const vaultAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
+  const bentoUSDAddress = "0x0d34325E9357908C00240d08380d82a79a60a2a4";
+  const oracleRouterAddress = "0x0A7383cc00E2b886a65e024CD1B3dC99A601B858";
 
   // Asset addresses from your Addresses.sol equivalent
   const DAIAddress = addresses.mainnet.DAI;
@@ -101,33 +99,47 @@ async function main() {
 
   if (setAssets) {
     console.log("Setting assets in vault...");
-    
+    // USDC, USDT, DAI have the generalized4626 strategy type, so we need to set the strategy type to 0
+    // USDe has the Ethena strategy type, so we need to set the strategy type to 1
+    // these 2 types have strategy address set to 0
     await vault.setAsset(
       USDCAddress,
       USDC_decimals,
       USDCWeight,
-      sUSDCAddress
+      sUSDCAddress,
+      0,
+      ethers.ZeroAddress,
+      0
     );
 
     await vault.setAsset(
       DAIAddress,
       DAI_decimals,
       DAIWeight,
-      sDAIAddress
+      sDAIAddress,
+      0,
+      ethers.ZeroAddress,
+      0
     );
 
     await vault.setAsset(
       USDTAddress,
       USDT_decimals,
       USDTWeight,
-      sUSDTAddress
+      sUSDTAddress,
+      0,
+      ethers.ZeroAddress,
+      0
     );
 
     await vault.setAsset(
       USDeAddress,
       USDe_decimals,
       USDeWeight,
-      sUSDeAddress
+      sUSDeAddress,
+      1,
+      ethers.ZeroAddress,
+      0
     );
   }
 
@@ -137,30 +149,6 @@ async function main() {
     USDT: ethers.ZeroAddress,
     USDe: ethers.ZeroAddress
   };
-
-  if (deployStrategies) {
-    console.log("Deploying strategies...");
-    
-    const Strategy = await ethers.getContractFactory("Generalized4626Strategy");
-    
-    strategies.USDC = await Strategy.deploy(USDCAddress, sUSDCAddress, vaultAddress);
-    await strategies.USDC.waitForDeployment();
-    strategies.DAI = await Strategy.deploy(DAIAddress, sDAIAddress, vaultAddress);
-    await strategies.DAI.waitForDeployment();
-    strategies.USDT = await Strategy.deploy(USDTAddress, sUSDTAddress, vaultAddress);
-    await strategies.USDT.waitForDeployment();
-    strategies.USDe = await Strategy.deploy(USDeAddress, sUSDeAddress, vaultAddress);
-    await strategies.USDe.waitForDeployment();
-  }
-
-  if (setAssetStrategies) {
-    console.log("Setting asset strategies...");
-    
-    await vault.setStrategy(USDCAddress, strategies.USDC);
-    await vault.setStrategy(DAIAddress, strategies.DAI);
-    await vault.setStrategy(USDTAddress, strategies.USDT);
-    await vault.setStrategy(USDeAddress, strategies.USDe);
-  }
 
   if (setLTToken) {
     const vaultAssets = await vault.getAssets();

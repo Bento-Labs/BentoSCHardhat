@@ -10,26 +10,12 @@ pragma solidity ^0.8.0;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
 
 contract VaultStorage {
     using SafeERC20 for IERC20;
 
-    // Changed to fit into a single storage slot so the decimals needs to be recached
-    struct AssetInfo {
-        address ltToken;
-        uint32 weight;
-        uint8 decimals;
-        uint8 index;
-        StrategyType strategyType;
-        address strategy;
-        uint256 minimalAmountInVault;
-    }
 
-    enum StrategyType {
-        Generalized4626,
-        Ethena,
-        Other
-    }
 
     uint256 public totalWeight;
 
@@ -43,14 +29,6 @@ contract VaultStorage {
     /// @dev list of all assets supported by the vault.
     // slither-disable-next-line uninitialized-state
     address[] public allAssets;
-
-    function getWeights() public view returns (uint32[] memory) {
-        uint32[] memory weights = new uint32[](allAssets.length);
-        for (uint256 i = 0; i < allAssets.length; i++) {
-            weights[i] = assetToAssetInfo[allAssets[i]].weight;
-        }
-        return weights;
-    }
 
     function getAssetInfos() public view returns (AssetInfo[] memory) {
         AssetInfo[] memory _assets = new AssetInfo[](allAssets.length);

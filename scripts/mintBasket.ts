@@ -8,7 +8,7 @@ async function main() {
   console.log("Signer address:", signer.address);
 
   // Get the VaultCore contract instance
-  const vaultAddress = "0x11E5eAD5844d54E4cBa42E4b9037d62019D9668d";
+  const vaultAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
   console.log("Vault address:", vaultAddress);
   const vaultCore = await ethers.getContractAt("VaultCore", vaultAddress) as VaultCore;
   const bentoUSDAddress = await vaultCore.bentoUSD();
@@ -55,6 +55,7 @@ async function main() {
   // Execute mintBasket transaction
   try {
     const tx = await vaultCore.mintBasket(
+        signer.address,
       depositAmount,
       minimumBentoUSD
     );
@@ -72,10 +73,12 @@ async function main() {
   // check lt balances of the vault
   for (let i = 0; i < assets.length; i++) {
     const asset = assets[i];
-    const assetInfo = await vaultCore.assets(addresses.mainnet[asset]);
+    const assetInfo = await vaultCore.assetToAssetInfo(addresses.mainnet[asset]);
     const ltToken = await ethers.getContractAt("IERC20", assetInfo.ltToken);
-    const balance = await ltToken.balanceOf(vaultAddress);
-    console.log(`lt token balance for ${asset}:`, balance.toString());
+    const tokenBalance = await (await ethers.getContractAt("IERC20", addresses.mainnet[asset])).balanceOf(vaultAddress);
+    const ltBalance = await ltToken.balanceOf(vaultAddress);
+    console.log(`token balance for ${asset}:`, tokenBalance.toString());
+    console.log(`lt token balance for ${asset}:`, ltBalance.toString());
   }
 }
 

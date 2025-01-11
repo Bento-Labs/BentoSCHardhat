@@ -13,7 +13,7 @@ describe("VaultCore", function() {
 
   const network = await hre.network.name;
   console.log(`network: ${network}`);
-  const chainId = await hre.config.chainId;
+  const chainId = (await ethers.provider.getNetwork()).chainId;
   console.log(`chainId: ${chainId}`);
     console.log(`deploying vault`);
     fixture = await loadFixture(deployVaultFixture);
@@ -26,6 +26,7 @@ describe("VaultCore", function() {
         vaultCore,
         vaultImpl,
         vault,
+        vaultInspector,
         bentoUSD,
         bentoUSDPlus,
         oracle,
@@ -60,7 +61,7 @@ describe("VaultCore", function() {
 
   describe("Mint and Redeem", function() {
     it.only("Should mint BentoUSD using mintBasket and redeem LT tokens using redeemLTBasket", async function() {
-      const { vault, bentoUSD, owner, assets, ltTokens } = fixture;
+      const { vault, vaultInspector, bentoUSD, owner, assets, ltTokens } = fixture;
       const depositAmount = ethers.parseEther("1000");
       const minimumBentoUSD = ethers.parseEther("990");
 
@@ -86,7 +87,7 @@ describe("VaultCore", function() {
       console.log(`approval done`)
 
       // rough calculation of the expected deposit amount from each underlying asset
-      const weights = await vault.getWeights();
+      const weights = await vaultInspector.getWeights();
       const totalWeight = weights.reduce((acc, weight) => acc + weight, 0n);
       const expectedDepositAmount = weights.map((weight) => depositAmount * weight / totalWeight);
       for (let i = 0; i < Object.keys(assets).length; i++) {
@@ -101,7 +102,7 @@ describe("VaultCore", function() {
 
       console.log(`minting BentoUSD`);
       // Mint BentoUSD
-      await vault.connect(user).mintBasket(depositAmount, minimumBentoUSD);
+      await vault.connect(user).mintBasket(user.address, depositAmount, minimumBentoUSD);
       console.log(`minting done`);
 
       const bentoUSDBalanceAfter = await bentoUSD.balanceOf(user.address);

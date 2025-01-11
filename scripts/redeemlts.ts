@@ -1,15 +1,17 @@
 import { ethers } from "hardhat";
-import { VaultCore, BentoUSD, OracleRouter, IERC4626 } from "../typechain-types";
+import { VaultCore, BentoUSD, OracleRouter, IERC4626, VaultInspector } from "../typechain-types";
 
 async function main() {
   // Get signer
   const [signer] = await ethers.getSigners();
 
   // Contract addresses
-  const vaultAddress = "0x11E5eAD5844d54E4cBa42E4b9037d62019D9668d";
+  const vaultAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
+  const vaultInspectorAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
   
   // Get contract instances
   const vault = await ethers.getContractAt("VaultCore", vaultAddress) as VaultCore;
+  const vaultInspector = await ethers.getContractAt("VaultInspector", vaultAddress) as VaultInspector;
   const bentoUSDAddress = await vault.bentoUSD();
   const oracleRouterAddress = await vault.oracleRouter();
   const oracleRouter = await ethers.getContractAt("OracleRouter", oracleRouterAddress) as OracleRouter;
@@ -37,11 +39,11 @@ async function main() {
 
 
     // Print received amounts
-    const assets = await vault.getAssets();
-    const weights = await vault.getWeights();
+    const assetInfos = await vault.getAssetInfos();
+    const weights = await vaultInspector.getWeights();
     const totalWeight = await vault.totalWeight();
     console.log("Total weight:", totalWeight);
-    for (let i = 0; i < assets.length; i++) {
+    for (let i = 0; i < assetInfos.length; i++) {
       const assetWeight = weights[i];
       console.log("Asset weight:", assetWeight);
       const partialInputAmount = redeemAmount * assetWeight / totalWeight;
@@ -52,7 +54,7 @@ async function main() {
       console.log("Asset price is less than 1e18:", assetPrice < 1e18);
       const partialInputAmountAfterPrice = partialInputAmount * BigInt(1e18) / BigInt(assetPrice);
       console.log("Partial input amount after price:", partialInputAmountAfterPrice);
-      const ltTokenAddress = assets[i].ltToken;
+      const ltTokenAddress = assetInfos[i].ltToken;
       const ltTokenContract = await ethers.getContractAt("IERC4626", ltTokenAddress) as IERC4626;
       const currentVaultLtBalance = await ltTokenContract.balanceOf(vaultAddress);
       console.log("Current vault LT balance:", currentVaultLtBalance);
@@ -66,7 +68,7 @@ async function main() {
 
     // Execute redemption
     console.log("Redeeming BentoUSD for liquid staking tokens...");
-    const tx = await vault.redeemLTBasket(redeemAmount, {gasLimit: 2_000_000});
+    const tx = await vault.redeemLTBasket(signer.address, redeemAmount, {gasLimit: 2_000_000});
     await tx.wait();
     
     console.log("Successfully redeemed BentoUSD for liquid staking tokens!");

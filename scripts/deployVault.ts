@@ -3,11 +3,12 @@ import { VaultCore, BentoUSD, OracleRouter, UpgradableProxy, BentoUSDPlus } from
 
 async function main() {
   // Configuration flags
-  const deployNewBentoUSDFlag = true;
-  const deployNewOracleRouterFlag = true;
-  const deployNewVaultFlag = true;
-  const setBentoUSDVaultFlag = true;
-  const deployBentoUSDPlusFlag = true;
+  const deployNewBentoUSDFlag = false;
+  const deployNewOracleRouterFlag = false;
+  const deployNewVaultFlag = false;
+  const setBentoUSDVaultFlag = false;
+  const deployBentoUSDPlusFlag = false;
+  const deployNewVaultInspectorFlag = true;
 
   // Get signer
   const [signer] = await ethers.getSigners();
@@ -33,7 +34,7 @@ async function main() {
     // we create the bentoUSD instance again to get the normal contract instance and not tenderly contract instance
     bentoUSD = await ethers.getContractAt("BentoUSD", await bentoUSD.getAddress()) as BentoUSD;
   } else {
-    bentoUSD = await ethers.getContractAt("BentoUSD", "0xF92D7eFab091368966aDBB5f34099833847dcF3b") as BentoUSD;
+    bentoUSD = await ethers.getContractAt("BentoUSD", "0x0d34325E9357908C00240d08380d82a79a60a2a4") as BentoUSD;
     console.log("BentoUSD already deployed at:", await bentoUSD.getAddress());
   }
 
@@ -47,7 +48,7 @@ async function main() {
     console.log("new OracleRouter deployed at:", await oracle.getAddress());
     console.log("--------------------------------")
   } else {
-    oracle = await ethers.getContractAt("OracleRouter", "0x8274713D419da3531DfAe1e9ed89d6F9c359cc4d") as OracleRouter;
+    oracle = await ethers.getContractAt("OracleRouter", "0x0A7383cc00E2b886a65e024CD1B3dC99A601B858") as OracleRouter;
     console.log("OracleRouter already deployed at:", await oracle.getAddress());
   }
 
@@ -78,7 +79,7 @@ async function main() {
     console.log("VaultCore proxy deployed at:", await vaultProxy.getAddress());
     console.log("--------------------------------")
   } else {
-    vaultProxy = await ethers.getContractAt("UpgradableProxy", "0xb120d26E6e36cE295Ec520c9d776EBBAeaf4436a") as UpgradableProxy;
+    vaultProxy = await ethers.getContractAt("UpgradableProxy", "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732") as UpgradableProxy;
     vaultImpl = await ethers.getContractAt("VaultCore", "0xB001e62bA3c8B4797aC1D6950d723b627737a92E") as VaultCore;
     console.log("VaultCore implementation already deployed at:", await vaultImpl.getAddress());
     console.log("VaultCore proxy already deployed at:", await vaultProxy.getAddress());
@@ -98,6 +99,15 @@ async function main() {
     await bentoUSDPlus.waitForDeployment();
     console.log("--------------------------------")
     console.log("BentoUSDPlus deployed at:", await bentoUSDPlus.getAddress());
+    console.log("--------------------------------")
+  }
+
+  if (deployNewVaultInspectorFlag) {
+    const VaultInspector = await ethers.getContractFactory("VaultInspector");
+    const vaultInspector = await VaultInspector.deploy(await vaultProxy.getAddress());
+    await vaultInspector.waitForDeployment();
+    console.log("--------------------------------")
+    console.log("VaultInspector deployed at:", await vaultInspector.getAddress());
     console.log("--------------------------------")
   }
 }
