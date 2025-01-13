@@ -3,7 +3,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-foundry";
 import * as tdly from "@tenderly/hardhat-tenderly";
 
-/* tdly.setup({ automaticVerifications: true }); */
+tdly.setup({ automaticVerifications: true });
 
 
 const config: HardhatUserConfig = {

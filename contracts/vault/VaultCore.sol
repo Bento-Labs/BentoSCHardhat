@@ -108,6 +108,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      */
     function redeemLTBasket(address _recipient, uint256 _amount) external {
         uint256[] memory ltAmounts = getOutputLTAmounts(_amount);
+        // note: is this check necessary? Isn't it already checked in the subsequent burn operation?
         require(IERC20(bentoUSD).balanceOf(msg.sender) >= _amount, "3");
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
         for (uint256 i = 0; i < allAssets.length; i++) {
@@ -119,7 +120,53 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     }
 
     function redeemUnderlyingBasket(address _recipient, uint256 _amount) external {
-        _redeemUnderlyingBasket(_recipient, _amount);
+        uint256 allAssetsLength = allAssets.length;
+        // we burn the BentoUSD tokens
+        BentoUSD(bentoUSD).burn(msg.sender, _amount);
+        // first we try to withdraw from the buffer wallet inside the vault core
+        // if not enough, we try to exchange the yield-bearing token to the underlying stable token
+        for (uint256 i = 0; i < allAssetsLength; i++) {
+            address assetAddress = allAssets[i];
+            AssetInfo memory assetInfo = assetToAssetInfo[assetAddress];
+            uint256 adjustedPrice = adjustPrice(IOracle(oracleRouter).price(assetAddress), true);
+            uint256 amountToRedeem = (_amount *
+                assetInfo.weight *
+                1e18) / (totalWeight * adjustedPrice);
+            // we need to scale the decimals
+            amountToRedeem = scaleDecimals(amountToRedeem, 18, assetInfo.decimals);
+            // get the buffer balance
+            uint256 amountInBuffer = IERC20(assetAddress).balanceOf(address(this));
+            if (amountInBuffer >= amountToRedeem) {
+                // if the buffer has enough, we can just transfer the amount to the user
+                IERC20(assetAddress).safeTransfer(_recipient, amountToRedeem);
+            } else {
+                // the missing amount is in underlying assets
+                uint256 missingAmount = amountToRedeem - amountInBuffer;
+                address ltToken = assetInfo.ltToken;
+                if (assetInfo.strategyType == StrategyType.Generalized4626) {
+                    // for ERC4626-compliant LTs we can withdraw directly
+                    // msg.sender is the receiver and this contract is currently holding the LTs
+                    IERC4626(ltToken).withdraw(missingAmount, msg.sender, address(this));
+                } else if (assetInfo.strategyType == StrategyType.Ethena) {
+                    // the ethena wallet proxy corresponding to msg.sender
+                    address ethenaWalletProxy = userToEthenaWalletProxy[msg.sender];
+                    if (ethenaWalletProxy == address(0)) {
+                        ethenaWalletProxy = address(new EthenaWalletProxy(ltToken, address(this)));
+                        userToEthenaWalletProxy[msg.sender] = ethenaWalletProxy;
+                    }
+                    // we cannot withdraw yet, here we just start the unbonding period
+                    commitWithdraw(missingAmount, ethenaWalletProxy);
+                } else {
+                    // for other types of LTs we perform the logics through a specialized strategy contract
+                    // we need to send LTs to this strategy contract first
+                    address strategy = assetInfo.strategy;
+                    uint256 missingAmountInLT = IStrategy(strategy).convertToShares(missingAmount);
+                    IERC20(ltToken).safeTransfer(strategy, missingAmountInLT);
+                    IStrategy(strategy).redeem(_recipient, missingAmountInLT);
+                    // the transfer of underlying assets to the user is done in the strategy contract
+                }
+            }
+        }
     }
 
     /**
@@ -222,53 +269,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         }
     } */
 
-    function _redeemUnderlyingBasket(address _recipient, uint256 _amount) internal {
-        uint256 allAssetsLength = allAssets.length;
-        // first we try to withdraw from the buffer wallet inside the vault core
-        // if not enough, we try to exchange the yield-bearing token to the underlying stable token
-        for (uint256 i = 0; i < allAssetsLength; i++) {
-            address assetAddress = allAssets[i];
-            AssetInfo memory assetInfo = assetToAssetInfo[assetAddress];
-            uint256 adjustedPrice = adjustPrice(IOracle(oracleRouter).price(assetAddress), true);
-            uint256 amountToRedeem = (_amount *
-                assetInfo.weight *
-                1e18) / (totalWeight * adjustedPrice);
-            // get the buffer balance
-            uint256 amountInBuffer = IERC20(assetAddress).balanceOf(address(this));
-            // we burn the BentoUSD tokens
-            BentoUSD(bentoUSD).burn(msg.sender, _amount);
-            if (amountInBuffer >= amountToRedeem) {
-                // if the buffer has enough, we can just transfer the amount to the user
-                IERC20(assetAddress).safeTransfer(_recipient, amountToRedeem);
-            } else {
-                // the missing amount is in underlying assets
-                uint256 missingAmount = amountToRedeem - amountInBuffer;
-                address ltToken = assetInfo.ltToken;
-                if (assetInfo.strategyType == StrategyType.Generalized4626) {
-                    // for ERC4626-compliant LTs we can withdraw directly
-                    IERC4626(ltToken).withdraw(missingAmount, msg.sender, msg.sender);
-                    IERC20(assetAddress).safeTransfer(_recipient, amountToRedeem);
-                } else if (assetInfo.strategyType == StrategyType.Ethena) {
-                    // the ethena wallet proxy corresponding to msg.sender
-                    address ethenaWalletProxy = userToEthenaWalletProxy[msg.sender];
-                    if (ethenaWalletProxy == address(0)) {
-                        ethenaWalletProxy = address(new EthenaWalletProxy(ltToken, address(this)));
-                        userToEthenaWalletProxy[msg.sender] = ethenaWalletProxy;
-                    }
-                    // we cannot withdraw yet, here we just start the unbonding period
-                    commitWithdraw(msg.sender, missingAmount, ethenaWalletProxy);
-                } else {
-                    // for other types of LTs we perform the logics through a specialized strategy contract
-                    // we need to send LTs to this strategy contract first
-                    address strategy = assetInfo.strategy;
-                    uint256 missingAmountInLT = IStrategy(strategy).convertToShares(missingAmount);
-                    IERC20(ltToken).safeTransfer(strategy, missingAmountInLT);
-                    IStrategy(strategy).redeem(_recipient, missingAmountInLT);
-                    // the transfer of underlying assets to the user is done in the strategy contract
-                }
-            }
-        }
-    }
+    
 
 /*     function _redeemWithWaitingPeriod(uint256 _amount) internal {
         revert("VaultCore: redeemWithWaitingPeriod is not implemented");

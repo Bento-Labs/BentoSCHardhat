@@ -19,16 +19,14 @@ contract EthenaWalletProxyManager {
 
     /**
      * @dev commit to a withdrawal request in Ethena protocol, which triggers the unbonding period
-     * @param _recipient Address to receive withdrawn asset
      * @param _assetAmount Amount of asset to withdraw
+     * @param _ethenaWalletProxy Address of the Ethena wallet proxy
      */
     function commitWithdraw(
-        address _recipient,
         uint256 _assetAmount,
         address _ethenaWalletProxy
     ) internal virtual {
         require(_assetAmount > 0, "Must withdraw something");
-        require(_recipient != address(0), "Must specify recipient");
         // slither-disable-next-line unused-return
         EthenaWalletProxy(_ethenaWalletProxy).commitWithdraw(_assetAmount);
     }

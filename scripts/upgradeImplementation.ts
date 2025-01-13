@@ -3,13 +3,16 @@ import { VaultCore, UpgradableProxy } from "../typechain-types";
 
 async function main() {
   // Configuration flags
+  // due to the timelock, it is better to call this script in two steps
+  // first with true, true, false, then with false, false, true
+  // we cannot use time.wait() either, because sometimes the tenderly fork doesn't update correctly for actions in the same script
   const deployNewImplementation = false;
   const setNewImplementation = false;
   const transferImplementation = true;
 
   // Contract addresses
   const proxyAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
-  let newImplementationAddress = "0x4Afb649AE3b588608e218972A8a7AfD84DfD8D5d";
+  let newImplementationAddress = "0x37FA84c4ABE39B897829059F207EEc59506de64a";
 
   // Get signer
   const [signer] = await ethers.getSigners();
@@ -48,6 +51,8 @@ async function main() {
 
     if (transferImplementation) {
       // Transfer implementation
+      // we put this here for verification of the implementation contract
+      await ethers.getContractAt("VaultCore", await proxy.newImplementation());
       const tx = await proxy.transferImplementation();
       await tx.wait();
       console.log("Implementation transferred to:", await proxy.implementation());
