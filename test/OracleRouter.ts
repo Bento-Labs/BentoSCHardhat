@@ -4,7 +4,7 @@ import { OracleRouterTest } from "../typechain-types/contracts/test/OracleRouter
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { addresses } from "../scripts/addresses";
 
-describe.only("OracleRouter", function () {
+describe("OracleRouter", function () {
   let oracleRouter: OracleRouterTest;
   let owner: SignerWithAddress;
   let addr1: SignerWithAddress;

@@ -22,21 +22,15 @@ contract VaultAdmin is VaultStorage {
 
     event AssetAdded(address indexed asset, uint32 weight);
     event AssetRemoved(address indexed asset);
-    event OracleRouterUpdated(address indexed oracleRouter);
-    event BentoUSDUpdated(address indexed bentoUSD);
-    event GovernorUpdated(address indexed governor);
-    event AssetWeightChanged(
-        address indexed asset,
-        uint32 oldWeight,
-        uint32 newWeight
-    );
 
     /***************************************
                  Configuration
     ****************************************/
 
     modifier onlyGovernor() {
-        require(msg.sender == governor, "1");
+        if (msg.sender != governor) {
+            revert Unauthorized();
+        }
         _;
     }
 
@@ -46,13 +40,16 @@ contract VaultAdmin is VaultStorage {
      */
     function setOracleRouter(address _oracleRouter) external onlyGovernor {
         oracleRouter = _oracleRouter;
-        emit OracleRouterUpdated(_oracleRouter);
     }
 
     function setBentoUSD(address _bentoUSD) external onlyGovernor {
         bentoUSD = _bentoUSD;
-        emit BentoUSDUpdated(_bentoUSD);
     }
+
+    function setBentoUSDPlus(address _bentoUSDPlus) external onlyGovernor {
+        bentoUSDPlus = _bentoUSDPlus;
+    }
+
     /* setAsset is used to add a new asset to the vault.
      *  _asset: the address of the asset
      *  _decimals: the number of decimals of the asset
@@ -71,9 +68,9 @@ contract VaultAdmin is VaultStorage {
         address _strategy,
         uint256 _minimalAmountInVault
     ) external onlyGovernor {
-
-        require(_asset != address(0), "3");
-        require(_ltToken != address(0), "4");
+        if (_asset == address(0) || _ltToken == address(0)) {
+            revert ZeroAddress();
+        }
         // if the asset is not supported, add it to the list
         if (assetToAssetInfo[_asset].ltToken == address(0)) {
             allAssets.push(_asset);
@@ -89,19 +86,27 @@ contract VaultAdmin is VaultStorage {
         // this is the decimals of the underlying asset
         // we try to get the decimals from onchain source if possible
         try IERC20Metadata(_asset).decimals() returns (uint8 decimals_) {
-            require(decimals_ == _decimals, "2");
+            if (decimals_ != _decimals) {
+                revert Inconsistency();
+            }
             asset.decimals = decimals_;
         } catch {
             asset.decimals = _decimals;
         }
         asset.strategyType = _strategyType;
         if (_strategyType == StrategyType.Generalized4626 || _strategyType == StrategyType.Ethena) {
-            require(_strategy == address(0), "6");
+            if (_strategy != address(0)) {
+                revert DefaultValueRequired();
+            }
         } else {
-            require(_strategy != address(0), "7");
+            if (_strategy == address(0)) {
+                revert Inconsistency();
+            }
         }
         if (_strategyType != StrategyType.Other) {
-            require(IERC4626(_ltToken).asset() == _asset, "8");
+            if (IERC4626(_ltToken).asset() != _asset) {
+                revert Inconsistency();
+            }
         }
         asset.minimalAmountInVault = _minimalAmountInVault;
 
@@ -112,7 +117,9 @@ contract VaultAdmin is VaultStorage {
      *  _asset: the address of the asset
      */
     function removeAsset(address _asset) external onlyGovernor {
-        require(assetToAssetInfo[_asset].ltToken != address(0), "9");
+        if (assetToAssetInfo[_asset].ltToken == address(0)) {
+            revert ZeroAddress();
+        }
         _changeAssetWeight(_asset, assetToAssetInfo[_asset].weight, 0);
         for (uint256 i = 0; i < allAssets.length; i++) {
             if (allAssets[i] == _asset) {
@@ -138,6 +145,5 @@ contract VaultAdmin is VaultStorage {
     ) internal {
         totalWeight = totalWeight + _newWeight - _oldWeight;
         assetToAssetInfo[_asset].weight = _newWeight;
-        emit AssetWeightChanged(_asset, _oldWeight, _newWeight);
     }
 }

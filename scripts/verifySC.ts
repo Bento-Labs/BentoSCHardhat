@@ -4,10 +4,9 @@ import { ethers, tenderly } from 'hardhat';
  */
 async function main() {
     // remember to turn on /* tdly.setup({ automaticVerifications: true }); */ in hardhat.config.ts
-    const contractAddress = "0xb120d26E6e36cE295Ec520c9d776EBBAeaf4436a";
-    const contractName = "VaultCore";
+    const contractAddress = "0xc7bAaB0b9b26Cf4b962f143c5cb23763ead129A9";
+    const contractName = "EthenaWalletProxy";
     await ethers.getContractAt(contractName, contractAddress);
-
 }
 
 main()

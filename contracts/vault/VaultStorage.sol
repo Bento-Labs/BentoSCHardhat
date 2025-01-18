@@ -11,8 +11,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
+import {VaultErrors} from "./VaultErrors.sol";
 
-contract VaultStorage {
+contract VaultStorage is VaultErrors {
     using SafeERC20 for IERC20;
 
 
@@ -21,6 +22,7 @@ contract VaultStorage {
 
     address public governor;
     address public bentoUSD;
+    address public bentoUSDPlus;
     address public oracleRouter;
 
     /// @dev mapping of supported vault assets to their configuration

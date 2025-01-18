@@ -12,7 +12,7 @@ async function main() {
 
   // Contract addresses
   const proxyAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
-  let newImplementationAddress = "0x37FA84c4ABE39B897829059F207EEc59506de64a";
+  let newImplementationAddress = "0xfEbf5aB62d2d4D8621834CE849258c6994827d76";
 
   // Get signer
   const [signer] = await ethers.getSigners();
