@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.27;
 
 import {IStakedUSDe} from "../interfaces/IStakedUSDe.sol";
 // Since we cannot stake directly to Ethena from the staking vault, as then the unbonding period would be bound to one address, we use proxy to have separate unbonding periods for each user.

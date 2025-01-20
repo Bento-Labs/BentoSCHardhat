@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity 0.8.27;
 
 import {OFT} from "@layerzerolabs/solidity-examples/contracts/token/oft/v1/OFT.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";

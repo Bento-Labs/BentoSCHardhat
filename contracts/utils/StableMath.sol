@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.27;
 
 // Based on StableMath from Stability Labs Pty. Ltd.
 // https://github.com/mstable/mStable-contracts/blob/master/contracts/shared/StableMath.sol
