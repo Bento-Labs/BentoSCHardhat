@@ -38,23 +38,4 @@ contract EthenaWalletProxyManager {
         EthenaWalletProxy(_ethenaWalletProxy).withdraw(_recipient);
     }
 
-    /**
-     * @dev Remove all assets from platform and send them to Vault contract.
-     */
-    /* function withdrawAll()
-        external
-        virtual
-        onlyAdmin
-    {
-        uint256 shareBalance = IERC20(shareToken).balanceOf(address(this));
-        uint256 assetAmount = IERC4626(shareToken).redeem(
-            shareBalance,
-            admin,
-            address(this)
-        );
-    }
-
-    function approveVault(address _vault) external onlyAdmin {
-        IERC20(assetToken).safeIncreaseAllowance(_vault, type(uint256).max);
-    } */
 }
