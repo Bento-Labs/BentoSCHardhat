@@ -87,7 +87,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256 _minimumBentoUSDAmount
     ) public {
         (uint256[] memory amounts, uint256 totalAmount) = getDepositAssetAmounts(_amount);
-        for (uint256 i = 0; i < allAssets.length; i++) {
+        uint256 assetLength = allAssets.length;
+        for (uint256 i = 0; i < assetLength; i++) {
             address assetAddress = allAssets[i];
             IERC20(assetAddress).safeTransferFrom(msg.sender, address(this), amounts[i]);
         }
@@ -274,7 +275,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     function getOutputLTAmounts(uint256 inputAmount) public view returns (uint256[] memory) {
         uint256[] memory amounts = new uint256[](allAssets.length);
         address priceOracle = oracleRouter;
-        for (uint256 i = 0; i < allAssets.length; i++) {
+        uint256 assetLength = allAssets.length;
+        for (uint256 i = 0; i < assetLength; i++) {
             address asset = allAssets[i];
             AssetInfo memory assetInfo = assetToAssetInfo[asset];
             // first we calculate the amount corresponding to the asset in USD 
@@ -295,7 +297,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      */
     function getTotalValue() public view returns (uint256) {
         uint256 totalValue = 0;
-        for (uint256 i = 0; i < allAssets.length; i++) {
+        uint256 assetLength = allAssets.length;
+        for (uint256 i = 0; i < assetLength; i++) {
             address asset = allAssets[i];
             // Get direct asset balance
             uint256 balance = IERC20(asset).balanceOf(address(this));
