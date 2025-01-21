@@ -7,6 +7,10 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {StableMath} from "./utils/StableMath.sol";
 
+/**
+ * @title OracleRouter
+ * @notice Manages price feeds for various assets and provides price data
+ */
 contract OracleRouter is IOracle, Ownable {
     using StableMath for uint256;
     using SafeCast for int256;
@@ -26,9 +30,16 @@ contract OracleRouter is IOracle, Ownable {
     }
 
     constructor(address initialOwner) Ownable() {
-        // Any additional initialization logic can go here
+        transferOwnership(initialOwner);
     }
 
+    /**
+     * @notice Adds a new price feed for an asset
+     * @param asset The address of the asset
+     * @param feedAddress The address of the price feed
+     * @param maxStaleness The maximum staleness allowed for the feed
+     * @param decimals The number of decimals for the asset price
+     */
     function addFeed(
         address asset,
         address feedAddress,
@@ -44,9 +55,9 @@ contract OracleRouter is IOracle, Ownable {
     }
 
     /**
-     * @notice Returns the total price in 18 digit unit for a given asset.
-     * @param asset address of the asset
-     * @return uint256 unit price for 1 asset unit, in 18 decimal fixed
+     * @notice Returns the total price in 18 digit unit for a given asset
+     * @param asset The address of the asset
+     * @return uint256 Unit price for 1 asset unit, in 18 decimal fixed
      */
     function price(
         address asset
@@ -69,7 +80,7 @@ contract OracleRouter is IOracle, Ownable {
 
         uint256 _price = _iprice.toUint256().scaleBy(18, decimals);
 
-        /// dev: split the checks for stablecoin and non-stablecoin
+        /// TODO: split the checks for stablecoin and non-stablecoin
         /* require(_price <= MAX_DRIFT, "Oracle: Price exceeds max");
         require(_price >= MIN_DRIFT, "Oracle: Price under min"); */
 

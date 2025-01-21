@@ -15,7 +15,7 @@ contract BentoUSD is Ownable, OFT {
         // Any additional initialization logic
     }
 
-    // for mainnet we will need to remove the minting right from owner.
+    // TODO: for mainnet we will need to remove the minting right from owner.
     function mint(address _to, uint256 _amount) public {
         require(msg.sender == bentoUSDVault || msg.sender == owner(), "BentoUSD: only bentoUSDVault or owner can mint");
         _mint(_to, _amount);
