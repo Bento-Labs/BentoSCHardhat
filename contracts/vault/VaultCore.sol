@@ -16,6 +16,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.
 import {EthenaWalletProxyManager} from "./EthenaWalletProxyManager.sol";
 import {EthenaWalletProxy} from "../utils/EthenaWalletProxy.sol";
 import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
+
 /**
  * @title VaultCore
  * @notice Core vault implementation for BentoUSD stablecoin system
@@ -52,6 +53,15 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         governor = _governor;
     }
 
+    /**
+     * @notice Mints BentoUSD tokens in exchange for a single supported asset
+     * @param _recipient Address to receive minted BentoUSD
+     * @param _asset Address of the input asset
+     * @param _amount Amount of input asset to deposit
+     * @param _minimumBentoUSDAmount Minimum acceptable BentoUSD output
+     * @param _routers Array of DEX router addresses for swaps
+     * @param _routerData Encoded swap data for each router
+     */
     function mintWithOneToken(
         address _recipient,
         address _asset,
@@ -60,93 +70,12 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         address[] calldata _routers,
         bytes[] calldata _routerData
     ) external {
-
+        // Implementation here
     }
-
-        /* function _mint(
-        address _recipient,
-        address _asset,
-        uint256 _amount,
-        uint256 _minimumBentoUSDAmount,
-        address[] calldata _routers,
-        bytes[] calldata _routerData
-    ) internal virtual {
-        require(assetToAssetInfo[_asset].ltToken != address(0), "9");
-        require(_amount > 0, "1");
-        require(
-            _routerData.length == allAssets.length,
-            "5"
-        );
-
-        // store total weight into a memory variable to save gas
-        uint256 _totalWeight = totalWeight;
-        uint256 _allAssetsLength = allAssets.length;
-
-        // store the total value of the basket
-        uint256 totalValueOfBasket = 0;
-        uint256 allAssetsLength = allAssets.length;
-        // we iterate through all assets
-        for (uint256 i = 0; i < allAssetsLength; i++) {
-            address assetAddress = allAssets[i];
-            // we only trade into assets that are not the asset we are depositing
-            if (assetAddress != _asset) {
-                AssetInfo memory asset = assetToAssetInfo[assetAddress];
-                // get the balance of the asset before the trade
-                uint256 balanceBefore = IERC20(assetAddress).balanceOf(
-                    address(this)
-                );
-                // get asset price from oracle
-                uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-                if (assetPrice > 1e18) {
-                    assetPrice = 1e18;
-                }
-                _swap(_routers[i], _routerData[i]);
-                // get the balance of the asset after the trade
-                uint256 balanceAfter = IERC20(assetAddress).balanceOf(
-                    address(this)
-                );
-                // get the amount of asset that is not in the balance after the trade
-                uint256 outputAmount = balanceAfter - balanceBefore;
-                emit Swap(
-                    _asset,
-                    assetAddress,
-                    _routers[i],
-                    outputAmount
-                );
-                uint256 expectedOutputAmount = (_amount * asset.weight) /
-                    _totalWeight;
-                uint256 deviation = (expectedOutputAmount > outputAmount)
-                    ? expectedOutputAmount - outputAmount
-                    : outputAmount - expectedOutputAmount;
-                uint256 deviationPercentage = (deviation * 100) /
-                    expectedOutputAmount;
-                require(
-                    deviationPercentage < deviationTolerance,
-                    "6"
-                );
-                totalValueOfBasket += (outputAmount * assetPrice) / 1e18;
-            } else {
-                uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-                totalValueOfBasket += (_amount * assetPrice) / 1e18;
-            }
-        }
-
-        require(
-            totalValueOfBasket > _minimumBentoUSDAmount,
-            string(
-                abi.encodePacked(
-                    "7",
-                    Strings.toString(totalValueOfBasket),
-                    ",",
-                    Strings.toString(_minimumBentoUSDAmount)
-                )
-            )
-        );
-        BentoUSD(bentoUSD).mint(_recipient, totalValueOfBasket);
-    } */
 
     /**
      * @notice Mints BentoUSD by depositing a proportional basket of all supported assets
+     * @param _recipient Address to receive minted BentoUSD
      * @param _amount Total USD value to deposit
      * @param _minimumBentoUSDAmount Minimum acceptable BentoUSD output
      */
@@ -164,9 +93,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             totalAmount > _minimumBentoUSDAmount,
             string(
                 abi.encodePacked(
-            "2",
-            Strings.toString(totalAmount),
-            ",",
+                    "2",
+                    Strings.toString(totalAmount),
+                    ",",
                     Strings.toString(_minimumBentoUSDAmount)
                 )
             )
@@ -174,6 +103,12 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         BentoUSD(bentoUSD).mint(_recipient, totalAmount);
     }
 
+    /**
+     * @notice Mints BentoUSD and stakes it in BentoUSDPlus
+     * @param _recipient Address to receive staked BentoUSDPlus
+     * @param _amount Total USD value to deposit
+     * @param _minimumBentoUSDAmount Minimum acceptable BentoUSD output
+     */
     function mintWithBasketAndStake(
         address _recipient,
         uint256 _amount,
@@ -191,8 +126,6 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      */
     function redeemLTBasket(address _recipient, uint256 _amount) external {
         uint256[] memory ltAmounts = getOutputLTAmounts(_amount);
-        // note: is this check necessary? Isn't it already checked in the subsequent burn operation?
-        require(IERC20(bentoUSD).balanceOf(msg.sender) >= _amount, "3");
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
         for (uint256 i = 0; i < allAssets.length; i++) {
             address assetAddress = allAssets[i];
@@ -202,6 +135,11 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         }
     }
 
+    /**
+     * @notice Redeems BentoUSD for underlying assets
+     * @param _recipient Address to receive withdrawn assets
+     * @param _amount Amount of BentoUSD to redeem
+     */
     function redeemUnderlyingBasket(address _recipient, uint256 _amount) external {
         uint256 allAssetsLength = allAssets.length;
         // we burn the BentoUSD tokens
@@ -264,22 +202,6 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     }
 
     // === Internal State-Changing Functions ===
-
-
-
-/*     function _swap(address _router, bytes calldata _routerData) internal {
-        (bool success, bytes memory _data) = _router.call(_routerData);
-        if (!success) {
-            if (_data.length > 0) revert SwapFailed(string(_data));
-            else revert SwapFailed("8");
-        }
-    } */
-
-    
-
-/*     function _redeemWithWaitingPeriod(uint256 _amount) internal {
-        revert("VaultCore: redeemWithWaitingPeriod is not implemented");
-    } */
 
     function _allocate() internal virtual {
         uint256 allAssetsLength = allAssets.length;
@@ -347,7 +269,12 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         }
         return (amounts, totalAmount);
     }
-    /* Calculate the amount of LTs to withdraw for a given amount of BentoUSD */
+
+    /**
+     * @notice Calculate the amount of LTs to withdraw for a given amount of BentoUSD
+     * @param inputAmount Amount of BentoUSD to redeem
+     * @return Array of LT amounts
+     */
     function getOutputLTAmounts(uint256 inputAmount) public view returns (uint256[] memory) {
         uint256[] memory amounts = new uint256[](allAssets.length);
         address priceOracle = oracleRouter;
@@ -366,6 +293,10 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         return amounts;
     }
 
+    /**
+     * @notice Returns the total value of assets in the vault
+     * @return Total value in USD
+     */
     function getTotalValue() public view returns (uint256) {
         uint256 totalValue = 0;
         for (uint256 i = 0; i < allAssets.length; i++) {
@@ -388,6 +319,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         return totalValue;
     }
 
+    /**
+     * @notice Mints reward based on the total value of the vault
+     */
     function mintReward() public {
         uint256 totalValue = getTotalValue();
         uint256 bentoUSDBalance = BentoUSD(bentoUSD).balanceOf(address(this));
