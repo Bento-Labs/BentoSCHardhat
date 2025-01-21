@@ -3,8 +3,9 @@ pragma solidity 0.8.27;
 
 /**
  * @title BentoToken VaultStorage contract
- * @notice The VaultStorage contract defines the storage for the Vault contracts
- * @author Le Anh Dung, Bento Labs
+ * @notice This contract holds the state variables and mappings for asset management in the vault
+ * 
+ * Author: Le Anh Dung, Bento Labs
  */
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -25,10 +26,10 @@ contract VaultStorage is VaultErrors {
     address public bentoUSDPlus;
     address public oracleRouter;
 
-    /// @dev mapping of supported vault assets to their configuration
+    /// @dev Mapping of supported vault assets to their configuration
     // slither-disable-next-line uninitialized-state
     mapping(address => AssetInfo) public assetToAssetInfo;
-    /// @dev list of all assets supported by the vault.
+    /// @dev List of all assets supported by the vault.
     // slither-disable-next-line uninitialized-state
     address[] public allAssets;
 
