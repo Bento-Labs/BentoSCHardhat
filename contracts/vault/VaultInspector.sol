@@ -6,6 +6,10 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {AssetInfo} from "./VaultDefinitions.sol";
 
+/**
+ * @title VaultInspector
+ * @notice This contract allows users to query information about assets and their configurations in the vault
+ */
 contract VaultInspector {
     VaultCore public vault;
 
@@ -13,12 +17,20 @@ contract VaultInspector {
         vault = VaultCore(_vault);
     }
 
+    /**
+     * @notice Retrieves the liquid token (ltToken) associated with a given asset
+     * @param _asset The address of the asset
+     * @return The address of the ltToken
+     */
     function getLtToken(address _asset) public view returns (address) {
         (address _ltToken, , , , , ,  ) = vault.assetToAssetInfo(_asset);
         return _ltToken;
     }
 
-        // what is the purpose of this function?
+    /**
+     * @notice Retrieves the conversion ratios from tokens to shares for all assets in the vault
+     * @return An array of conversion ratios
+     */
     function getTokenToShareRatios() public view returns (uint256[] memory) {
         address[] memory allAssets = vault.getAllAssets();
         uint256 allAssetsLength = allAssets.length;
@@ -32,6 +44,10 @@ contract VaultInspector {
         return ratios;
     }
 
+    /**
+     * @notice Retrieves the weights of all assets in the vault
+     * @return An array of asset weights
+     */
     function getWeights() public view returns (uint32[] memory) {
         address[] memory allAssets = vault.getAllAssets();
         uint32[] memory weights = new uint32[](allAssets.length);
@@ -41,6 +57,4 @@ contract VaultInspector {
         }
         return weights;
     }
-
-
 }
