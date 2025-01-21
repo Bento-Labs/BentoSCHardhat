@@ -49,7 +49,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     // === External State-Changing Functions ===
     
     function initialize(address _governor) public initializer {
-        require(_governor != address(0), "1");
+        if (_governor == address(0)) {
+            revert ZeroAddress();
+        }
         governor = _governor;
     }
 
@@ -89,17 +91,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             address assetAddress = allAssets[i];
             IERC20(assetAddress).safeTransferFrom(msg.sender, address(this), amounts[i]);
         }
-        require(
-            totalAmount > _minimumBentoUSDAmount,
-            string(
-                abi.encodePacked(
-                    "2",
-                    Strings.toString(totalAmount),
-                    ",",
-                    Strings.toString(_minimumBentoUSDAmount)
-                )
-            )
-        );
+        if (totalAmount < _minimumBentoUSDAmount) {
+            revert SlippageTooHigh();
+        }
         BentoUSD(bentoUSD).mint(_recipient, totalAmount);
     }
 
@@ -130,7 +124,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         for (uint256 i = 0; i < allAssets.length; i++) {
             address assetAddress = allAssets[i];
             address ltToken = assetToAssetInfo[assetAddress].ltToken;
-            require(IERC20(ltToken).balanceOf(address(this)) >= ltAmounts[i], "4");
+            if (IERC20(ltToken).balanceOf(address(this)) < ltAmounts[i]) {
+                revert InsufficientBalance();
+            }
             IERC20(ltToken).safeTransfer(_recipient, ltAmounts[i]);
         }
     }

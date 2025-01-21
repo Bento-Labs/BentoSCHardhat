@@ -6,12 +6,13 @@ import {AggregatorV3Interface} from "./interfaces/chainlink/AggregatorV3Interfac
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {StableMath} from "./utils/StableMath.sol";
+import {Errors} from "./utils/Errors.sol";
 
 /**
  * @title OracleRouter
  * @notice Manages price feeds for various assets and provides price data
  */
-contract OracleRouter is IOracle, Ownable {
+contract OracleRouter is IOracle, Ownable, Errors {
     using StableMath for uint256;
     using SafeCast for int256;
 
@@ -47,7 +48,9 @@ contract OracleRouter is IOracle, Ownable {
         uint8 decimals
     ) public onlyOwner {
         try AggregatorV3Interface(feedAddress).decimals() returns (uint8 feedDecimals) {
-            require(feedDecimals == decimals, "Input decimals do not match feed decimals");
+            if (feedDecimals != decimals) {
+                revert Inconsistency();
+            }
         } catch {
             // If decimals is not callable, use the input decimals
         }
@@ -66,17 +69,20 @@ contract OracleRouter is IOracle, Ownable {
         address _feed = feedInfo.feedAddress;
         uint8 decimals = feedInfo.decimals;
         uint256 maxStaleness = feedInfo.maxStaleness;
-        require(_feed != address(0), "Asset not available");
-        require(_feed != FIXED_PRICE, "Fixed price feeds not supported");
+        if (_feed == address(0)) {
+            revert ZeroAddress();
+        }
+        if (_feed == FIXED_PRICE) {
+            revert NotSupported();
+        }
         
 
         (, int256 _iprice, , uint256 updatedAt, ) = AggregatorV3Interface(_feed)
             .latestRoundData();
 
-        require(
-            updatedAt + maxStaleness >= block.timestamp,
-            "Oracle price too old"
-        );
+        if (updatedAt + maxStaleness < block.timestamp) {
+            revert StalePrice();
+        }
 
         uint256 _price = _iprice.toUint256().scaleBy(18, decimals);
 

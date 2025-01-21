@@ -9,10 +9,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { EthenaWalletProxy } from "../utils/EthenaWalletProxy.sol";
-import "hardhat/console.sol";
+import {Errors} from "../utils/Errors.sol";
 
-
-contract EthenaWalletProxyManager {
+contract EthenaWalletProxyManager is Errors {
     using SafeERC20 for IERC20;
 
     mapping(address => address) public userToEthenaWalletProxy;
@@ -26,7 +25,9 @@ contract EthenaWalletProxyManager {
         uint256 _assetAmount,
         address _ethenaWalletProxy
     ) internal virtual {
-        require(_assetAmount > 0, "Must withdraw something");
+        if (_assetAmount == 0) {
+            revert ZeroAmount();
+        }
         // slither-disable-next-line unused-return
         EthenaWalletProxy(_ethenaWalletProxy).commitWithdraw(_assetAmount);
     }

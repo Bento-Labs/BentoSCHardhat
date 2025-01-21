@@ -12,9 +12,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
-import {VaultErrors} from "./VaultErrors.sol";
+import {Errors} from "../utils/Errors.sol";
 
-contract VaultStorage is VaultErrors {
+contract VaultStorage is Errors {
     using SafeERC20 for IERC20;
 
 
