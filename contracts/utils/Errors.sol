@@ -1,6 +1,6 @@
 pragma solidity 0.8.27;
 
-contract VaultErrors {
+contract Errors {
     error Unauthorized();
     error ZeroAddress();
     error Inconsistency();
