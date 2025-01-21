@@ -25,7 +25,7 @@ import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
 contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     using SafeERC20 for IERC20;
     using StableMath for uint256;
-    uint256 public constant deviationTolerance = 1; // in percentage
+    uint256 public constant deviationTolerance = 100; // in BPS
 
     event Swap(
         address inputAsset,
