@@ -13,7 +13,6 @@ pragma solidity 0.8.27;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {StableMath} from "../utils/StableMath.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
@@ -22,7 +21,6 @@ import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
 
 contract VaultAdmin is VaultStorage {
     using SafeERC20 for IERC20;
-    using StableMath for uint256;
 
     event AssetAdded(address indexed asset, uint32 weight);
     event AssetRemoved(address indexed asset);

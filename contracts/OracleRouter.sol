@@ -5,7 +5,6 @@ import {IOracle} from "./interfaces/IOracle.sol";
 import {AggregatorV3Interface} from "./interfaces/chainlink/AggregatorV3Interface.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {StableMath} from "./utils/StableMath.sol";
 import {Errors} from "./utils/Errors.sol";
 
 /**
@@ -13,7 +12,6 @@ import {Errors} from "./utils/Errors.sol";
  * @notice Manages price feeds for various assets and provides price data
  */
 contract OracleRouter is IOracle, Ownable, Errors {
-    using StableMath for uint256;
     using SafeCast for int256;
 
     uint256 internal constant MIN_DRIFT = 0.9e18;
@@ -85,12 +83,31 @@ contract OracleRouter is IOracle, Ownable, Errors {
             revert StalePrice();
         }
 
-        uint256 _price = _iprice.toUint256().scaleBy(18, decimals);
+        uint256 _price = scaleBy(_iprice.toUint256(), 18, decimals);
 
         /// TODO: split the checks for stablecoin and non-stablecoin
         /* require(_price <= MAX_DRIFT, "Oracle: Price exceeds max");
         require(_price >= MIN_DRIFT, "Oracle: Price under min"); */
 
         return _price;
+    }
+
+    /**
+     * @dev Adjust the scale of an integer
+     * @param to Decimals to scale to
+     * @param from Decimals to scale from
+     */
+    function scaleBy(
+        uint256 x,
+        uint256 to,
+        uint256 from
+    ) internal pure returns (uint256) {
+        if (to > from) {
+            x = x * (10 ** (to - from));
+        } else if (to < from) {
+            // slither-disable-next-line divide-before-multiply
+            x = x / (10 ** (from - to));
+        }
+        return x;
     }
 }

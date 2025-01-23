@@ -2,11 +2,9 @@
 pragma solidity 0.8.27;
 
 import "../OracleRouter.sol";
-import "../utils/StableMath.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract OracleRouterTest is OracleRouter {
-    using StableMath for uint256;
     using SafeCast for int256;
 
     constructor(address initialOwner) OracleRouter(initialOwner) {
@@ -24,6 +22,6 @@ contract OracleRouterTest is OracleRouter {
     function priceScaled(address asset) public view returns (uint256) {
         FeedInfo storage feedInfo = tokenToFeed[asset];
         return
-            priceUnfiltered(asset).toUint256().scaleBy(18, feedInfo.decimals);
+            scaleBy(priceUnfiltered(asset).toUint256(), 18, feedInfo.decimals);
     }
 }

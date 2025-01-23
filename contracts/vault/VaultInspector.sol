@@ -34,7 +34,7 @@ contract VaultInspector {
         uint256[] memory ratios = new uint256[](allAssetsLength);
         for (uint256 i = 0; i < allAssetsLength; ++i) {
             address tokenAddress = allAssets[i];
-            address ltToken = getLtToken(tokenAddress);
+            address ltToken = getLtToken(tokenAddress, vault    );
             uint256 unit = 10 ** IERC20Metadata(tokenAddress).decimals();
             ratios[i] = IERC4626(ltToken).convertToShares(unit);
         }
@@ -46,12 +46,12 @@ contract VaultInspector {
      * @param vault The address of the vault
      * @return An array of asset weights
      */
-    function getWeights(IVaultCore vault) public view returns (uint32[] memory) {
+    function getWeights(IVaultCore vault) public view returns (uint256[] memory) {
         address[] memory allAssets = vault.getAllAssets();
-        uint32[] memory weights = new uint32[](allAssets.length);
+        uint256[] memory weights = new uint256[](allAssets.length);
         uint256 allAssetsLength = allAssets.length;
         for (uint256 i = 0; i < allAssetsLength; ++i) {
-            ( , uint32 weight, , , , ,  ) = vault.assetToAssetInfo(allAssets[i]);
+            ( , uint256 weight, , , , ,  ) = vault.assetToAssetInfo(allAssets[i]);
             weights[i] = weight;
         }
         return weights;

@@ -149,7 +149,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             address assetAddress = allAssets[i];
             AssetInfo memory assetInfo = assetToAssetInfo[assetAddress];
             uint256 adjustedPrice = adjustPrice(IOracle(oracleRouter).price(assetAddress), true);
-            uint256 amountToRedeem = _amount.mulDiv(assetInfo.weight * ONE, totalWeight * adjustedPrice, Rounding.Down);
+            uint256 amountToRedeem = _amount.mulDiv(assetInfo.weight * ONE, totalWeight * adjustedPrice, Math.Rounding.Down);
             // we need to scale the decimals
             amountToRedeem = scaleDecimals(amountToRedeem, 18, assetInfo.decimals);
             // get the buffer balance
@@ -169,7 +169,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                     // the ethena wallet proxy corresponding to msg.sender
                     address ethenaWalletProxy = userToEthenaWalletProxy[msg.sender];
                     if (ethenaWalletProxy == address(0)) {
-                        ethenaWalletProxy = address(new EthenaWalletProxy(ltToken, address(this)));
+                        ethenaWalletProxy = address(new EthenaWalletProxy(ltToken, address(this), msg.sender));
                         userToEthenaWalletProxy[msg.sender] = ethenaWalletProxy;
                     }
 
@@ -281,10 +281,10 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             AssetInfo memory assetInfo = assetToAssetInfo[asset];
             // first we calculate the amount corresponding to the asset in USD 
             // the amount has 18 decimals (because bentoUSD has 18 decimals)
-            uint256 partialInputAmount = inputAmount.mulDiv(assetInfo.weight, totalWeight, Rounding.Down);
+            uint256 partialInputAmount = inputAmount.mulDiv(assetInfo.weight, totalWeight, Math.Rounding.Down);
             uint256 adjustedPrice = adjustPrice(IOracle(priceOracle).price(asset), true);
             // we need to scale it to the decimals of the asset
-            uint256 normalizedAmount = scaleDecimals(partialInputAmount.mulDiv(ONE, adjustedPrice, Rounding.Down), 18, IERC20Metadata(asset).decimals());
+            uint256 normalizedAmount = scaleDecimals(partialInputAmount.mulDiv(ONE, adjustedPrice, Math.Rounding.Down), 18, IERC20Metadata(asset).decimals());
             address ltToken = assetInfo.ltToken;
             amounts[i] = IERC4626(ltToken).convertToShares(normalizedAmount);
         }
@@ -313,7 +313,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             
             // Multiply by price to get USD value
             uint256 assetPrice = adjustPrice(IOracle(oracleRouter).price(asset), false);
-            totalValue += totalBalance.mulDiv(assetPrice, ONE, Rounding.Down);
+            totalValue += totalBalance.mulDiv(assetPrice, ONE, Math.Rounding.Down);
         }
         return totalValue;
     }
