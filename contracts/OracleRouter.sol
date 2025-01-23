@@ -53,6 +53,7 @@ contract OracleRouter is IOracle, Ownable, Errors {
             }
         } catch {
             // If decimals is not callable, use the input decimals
+            // i.e. we do nothing here, hence it's empty
         }
         tokenToFeed[asset] = FeedInfo(decimals, feedAddress, maxStaleness);
     }
