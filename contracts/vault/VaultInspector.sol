@@ -19,8 +19,8 @@ contract VaultInspector {
      * @return The address of the ltToken
      */
     function getLtToken(address _asset, IVaultCore vault) public view returns (address) {
-        (address _ltToken, , , , , ,  ) = vault.assetToAssetInfo(_asset);
-        return _ltToken;
+        AssetInfo memory assetInfo = vault.assetToAssetInfo(_asset);
+        return assetInfo.ltToken;
     }
 
     /**
@@ -46,13 +46,13 @@ contract VaultInspector {
      * @param vault The address of the vault
      * @return An array of asset weights
      */
-    function getWeights(IVaultCore vault) public view returns (uint256[] memory) {
+    function getWeights(IVaultCore vault) public view returns (uint32[] memory) {
         address[] memory allAssets = vault.getAllAssets();
-        uint256[] memory weights = new uint256[](allAssets.length);
+        uint32[] memory weights = new uint32[](allAssets.length);
         uint256 allAssetsLength = allAssets.length;
         for (uint256 i = 0; i < allAssetsLength; ++i) {
-            ( , uint256 weight, , , , ,  ) = vault.assetToAssetInfo(allAssets[i]);
-            weights[i] = weight;
+            AssetInfo memory assetInfo = vault.assetToAssetInfo(allAssets[i]);
+            weights[i] = assetInfo.weight;
         }
         return weights;
     }
