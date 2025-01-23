@@ -135,7 +135,8 @@ contract VaultAdmin is VaultStorage {
             revert ZeroAddress();
         }
         _changeAssetWeight(_asset, assetToAssetInfo[_asset].weight, 0);
-        for (uint256 i = 0; i < allAssets.length; i++) {
+        uint256 allAssetsLength = allAssets.length;
+        for (uint256 i = 0; i < allAssetsLength; ++i) {
             if (allAssets[i] == _asset) {
                 allAssets[i] = allAssets[allAssets.length - 1];
                 // since we move the last element to the current position, we need to update the index of the new last element

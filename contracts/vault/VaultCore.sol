@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-import {StableMath} from "../utils/StableMath.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {VaultAdmin} from "./VaultAdmin.sol";
 import {BentoUSD} from "../BentoUSD.sol";
@@ -24,8 +24,9 @@ import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
  */
 contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     using SafeERC20 for IERC20;
-    using StableMath for uint256;
+    using Math for uint256;
     uint256 public constant deviationTolerance = 100; // in BPS
+    uint256 constant ONE = 1e18;
 
     event Swap(
         address inputAsset,
@@ -88,7 +89,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     ) public {
         (uint256[] memory amounts, uint256 totalAmount) = getDepositAssetAmounts(_amount);
         uint256 assetLength = allAssets.length;
-        for (uint256 i = 0; i < assetLength; i++) {
+        for (uint256 i = 0; i < assetLength; ++i) {
             address assetAddress = allAssets[i];
             IERC20(assetAddress).safeTransferFrom(msg.sender, address(this), amounts[i]);
         }
@@ -122,7 +123,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     function redeemLTBasket(address _recipient, uint256 _amount) external {
         uint256[] memory ltAmounts = getOutputLTAmounts(_amount);
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
-        for (uint256 i = 0; i < allAssets.length; i++) {
+        uint256 allAssetsLength = allAssets.length;
+        for (uint256 i = 0; i < allAssetsLength; ++i) {
             address assetAddress = allAssets[i];
             address ltToken = assetToAssetInfo[assetAddress].ltToken;
             if (IERC20(ltToken).balanceOf(address(this)) < ltAmounts[i]) {
@@ -143,13 +145,11 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
         // first we try to withdraw from the buffer wallet inside the vault core
         // if not enough, we try to exchange the yield-bearing token to the underlying stable token
-        for (uint256 i = 0; i < allAssetsLength; i++) {
+        for (uint256 i = 0; i < allAssetsLength; ++i) {
             address assetAddress = allAssets[i];
             AssetInfo memory assetInfo = assetToAssetInfo[assetAddress];
             uint256 adjustedPrice = adjustPrice(IOracle(oracleRouter).price(assetAddress), true);
-            uint256 amountToRedeem = (_amount *
-                assetInfo.weight *
-                1e18) / (totalWeight * adjustedPrice);
+            uint256 amountToRedeem = _amount.mulDiv(assetInfo.weight * ONE, totalWeight * adjustedPrice, Rounding.Down);
             // we need to scale the decimals
             amountToRedeem = scaleDecimals(amountToRedeem, 18, assetInfo.decimals);
             // get the buffer balance
@@ -246,18 +246,18 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256[] memory relativeWeights = new uint256[](numberOfAssets);
         uint256[] memory amounts = new uint256[](numberOfAssets);
         uint256 totalRelativeWeight = 0;
-        for (uint256 i = 0; i < numberOfAssets; i++) {
+        for (uint256 i = 0; i < numberOfAssets; ++i) {
             address assetAddress = allAssets[i];
             // we round it upwards to avoid rounding errors detrimental for the protocol
             uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-            if (assetPrice > 1e18) {
-                assetPrice = 1e18;
+            if (assetPrice > ONE) {
+                assetPrice = ONE;
             }
             relativeWeights[i] = assetToAssetInfo[assetAddress].weight * assetPrice;
             totalRelativeWeight += relativeWeights[i];
         }
         uint256 totalAmount = 0;
-        for (uint256 i = 0; i < numberOfAssets; i++) {
+        for (uint256 i = 0; i < numberOfAssets; ++i) {
             // here the amount[i] has 18 decimals (because bentoUSD has 18 decimals)
             amounts[i] = (desiredAmount * relativeWeights[i]) / totalRelativeWeight;
             totalAmount += amounts[i];
@@ -276,15 +276,15 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256[] memory amounts = new uint256[](allAssets.length);
         address priceOracle = oracleRouter;
         uint256 assetLength = allAssets.length;
-        for (uint256 i = 0; i < assetLength; i++) {
+        for (uint256 i = 0; i < assetLength; ++i) {
             address asset = allAssets[i];
             AssetInfo memory assetInfo = assetToAssetInfo[asset];
             // first we calculate the amount corresponding to the asset in USD 
             // the amount has 18 decimals (because bentoUSD has 18 decimals)
-            uint256 partialInputAmount = (inputAmount * assetInfo.weight) / totalWeight;
+            uint256 partialInputAmount = inputAmount.mulDiv(assetInfo.weight, totalWeight, Rounding.Down);
             uint256 adjustedPrice = adjustPrice(IOracle(priceOracle).price(asset), true);
             // we need to scale it to the decimals of the asset
-            uint256 normalizedAmount = scaleDecimals(partialInputAmount * 1e18 / adjustedPrice, 18, IERC20Metadata(asset).decimals());
+            uint256 normalizedAmount = scaleDecimals(partialInputAmount.mulDiv(ONE, adjustedPrice, Rounding.Down), 18, IERC20Metadata(asset).decimals());
             address ltToken = assetInfo.ltToken;
             amounts[i] = IERC4626(ltToken).convertToShares(normalizedAmount);
         }
@@ -298,7 +298,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     function getTotalValue() public view returns (uint256) {
         uint256 totalValue = 0;
         uint256 assetLength = allAssets.length;
-        for (uint256 i = 0; i < assetLength; i++) {
+        for (uint256 i = 0; i < assetLength; ++i) {
             address asset = allAssets[i];
             // Get direct asset balance
             uint256 balance = IERC20(asset).balanceOf(address(this));
@@ -313,7 +313,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             
             // Multiply by price to get USD value
             uint256 assetPrice = adjustPrice(IOracle(oracleRouter).price(asset), false);
-            totalValue += (totalBalance * assetPrice) / 1e18;
+            totalValue += totalBalance.mulDiv(assetPrice, ONE, Rounding.Down);
         }
         return totalValue;
     }
@@ -332,12 +332,12 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     // === Internal Pure Functions ===
     function adjustPrice(uint256 price, bool redeemFlag) internal pure returns (uint256) {
         if (redeemFlag) {
-            if (price < 1e18) {
-                price = 1e18;
+            if (price < ONE) {
+                price = ONE;
             }
         } else {
-            if (price > 1e18) {
-                price = 1e18;
+            if (price > ONE) {
+                price = ONE;
             }
         }
         return price;

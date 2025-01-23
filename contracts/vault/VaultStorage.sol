@@ -35,7 +35,8 @@ contract VaultStorage is Errors {
 
     function getAssetInfos() public view returns (AssetInfo[] memory) {
         AssetInfo[] memory _assets = new AssetInfo[](allAssets.length);
-        for (uint256 i = 0; i < allAssets.length; i++) {
+        uint256 allAssetsLength = allAssets.length;
+        for (uint256 i = 0; i < allAssetsLength; i++) {
             _assets[i] = assetToAssetInfo[allAssets[i]];
         }
         return _assets;
