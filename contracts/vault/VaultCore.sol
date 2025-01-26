@@ -89,7 +89,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     ) public {
         (uint256[] memory amounts, uint256 totalAmount) = getDepositAssetAmounts(_amount);
         uint256 assetLength = allAssets.length;
-        for (uint256 i = 0; i < assetLength; ++i) {
+        for (uint256 i; i < assetLength; ++i) {
             address assetAddress = allAssets[i];
             IERC20(assetAddress).safeTransferFrom(msg.sender, address(this), amounts[i]);
         }
@@ -124,7 +124,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256[] memory ltAmounts = getOutputLTAmounts(_amount);
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
         uint256 allAssetsLength = allAssets.length;
-        for (uint256 i = 0; i < allAssetsLength; ++i) {
+        for (uint256 i; i < allAssetsLength; ++i) {
             address assetAddress = allAssets[i];
             address ltToken = assetToAssetInfo[assetAddress].ltToken;
             if (IERC20(ltToken).balanceOf(address(this)) < ltAmounts[i]) {
@@ -145,7 +145,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         BentoUSD(bentoUSD).burn(msg.sender, _amount);
         // first we try to withdraw from the buffer wallet inside the vault core
         // if not enough, we try to exchange the yield-bearing token to the underlying stable token
-        for (uint256 i = 0; i < allAssetsLength; ++i) {
+        for (uint256 i; i < allAssetsLength; ++i) {
             address assetAddress = allAssets[i];
             AssetInfo memory assetInfo = assetToAssetInfo[assetAddress];
             uint256 adjustedPrice = adjustPrice(IOracle(oracleRouter).price(assetAddress), true);
@@ -202,7 +202,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
 
     function _allocate() internal virtual {
         uint256 allAssetsLength = allAssets.length;
-        for (uint256 i = 0; i < allAssetsLength; ++i) {
+        for (uint256 i; i < allAssetsLength; ++i) {
             IERC20 asset = IERC20(allAssets[i]);
             uint256 assetBalance = asset.balanceOf(address(this));
             AssetInfo memory assetInfo = assetToAssetInfo[allAssets[i]];
@@ -246,7 +246,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256[] memory relativeWeights = new uint256[](numberOfAssets);
         uint256[] memory amounts = new uint256[](numberOfAssets);
         uint256 totalRelativeWeight = 0;
-        for (uint256 i = 0; i < numberOfAssets; ++i) {
+        for (uint256 i; i < numberOfAssets; ++i) {
             address assetAddress = allAssets[i];
             // we round it upwards to avoid rounding errors detrimental for the protocol
             uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
@@ -257,7 +257,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             totalRelativeWeight += relativeWeights[i];
         }
         uint256 totalAmount = 0;
-        for (uint256 i = 0; i < numberOfAssets; ++i) {
+        for (uint256 i; i < numberOfAssets; ++i) {
             // here the amount[i] has 18 decimals (because bentoUSD has 18 decimals)
             amounts[i] = (desiredAmount * relativeWeights[i]) / totalRelativeWeight;
             totalAmount += amounts[i];
@@ -276,7 +276,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256[] memory amounts = new uint256[](allAssets.length);
         address priceOracle = oracleRouter;
         uint256 assetLength = allAssets.length;
-        for (uint256 i = 0; i < assetLength; ++i) {
+        for (uint256 i; i < assetLength; ++i) {
             address asset = allAssets[i];
             AssetInfo memory assetInfo = assetToAssetInfo[asset];
             // first we calculate the amount corresponding to the asset in USD 
@@ -298,7 +298,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     function getTotalValue() public view returns (uint256) {
         uint256 totalValue = 0;
         uint256 assetLength = allAssets.length;
-        for (uint256 i = 0; i < assetLength; ++i) {
+        for (uint256 i; i < assetLength; ++i) {
             address asset = allAssets[i];
             // Get direct asset balance
             uint256 balance = IERC20(asset).balanceOf(address(this));
