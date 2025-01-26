@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { VaultCore, BentoUSD, OracleRouter, IERC4626, VaultInspector } from "../typechain-types";
+import { VaultCore, BentoUSD, OracleRouter, IERC4626, VaultInspector } from "../../typechain-types";
 // script to call the function 
 async function main() {
   // Get signer

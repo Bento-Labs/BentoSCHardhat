@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { VaultCore, BentoUSD, BentoUSDPlus, OracleRouter, IERC20, IERC20Metadata } from "../typechain-types";
+import { VaultCore, BentoUSD, BentoUSDPlus, OracleRouter, IERC20, IERC20Metadata } from "../../typechain-types";
 
 async function main() {
   // Load deployed vault address

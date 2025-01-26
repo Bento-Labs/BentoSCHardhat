@@ -1,13 +1,13 @@
 import { ethers } from "hardhat";
-import { VaultCore, BentoUSD, OracleRouter, UpgradableProxy, BentoUSDPlus } from "../typechain-types";
+import { VaultCore, BentoUSD, OracleRouter, UpgradableProxy, BentoUSDPlus } from "../../typechain-types";
 
 async function main() {
   // Configuration flags
-  const deployNewBentoUSDFlag = false;
-  const deployNewOracleRouterFlag = false;
-  const deployNewVaultFlag = false;
-  const setBentoUSDVaultFlag = false;
-  const deployBentoUSDPlusFlag = false;
+  const deployNewBentoUSDFlag = true;
+  const deployNewOracleRouterFlag = true;
+  const deployNewVaultFlag = true;
+  const setBentoUSDVaultFlag = true;
+  const deployBentoUSDPlusFlag = true;
   const deployNewVaultInspectorFlag = true;
 
   // Get signer
@@ -104,7 +104,7 @@ async function main() {
 
   if (deployNewVaultInspectorFlag) {
     const VaultInspector = await ethers.getContractFactory("VaultInspector");
-    const vaultInspector = await VaultInspector.deploy(await vaultProxy.getAddress());
+    const vaultInspector = await VaultInspector.deploy();
     await vaultInspector.waitForDeployment();
     console.log("--------------------------------")
     console.log("VaultInspector deployed at:", await vaultInspector.getAddress());

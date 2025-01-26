@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { BentoUSD, BentoUSDPlus } from "../typechain-types";
+import { BentoUSD, BentoUSDPlus } from "../../typechain-types";
 
 async function main() {
   // Get signer

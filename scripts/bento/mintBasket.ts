@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
-import { addresses } from "./addresses";
-import { VaultCore, BentoUSD } from "../typechain-types";
+import { addresses } from "../addresses";
+import { VaultCore, BentoUSD } from "../../typechain-types";
 
 async function main() {
   // Get the signer

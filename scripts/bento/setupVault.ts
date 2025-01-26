@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
-import { VaultCore, BentoUSD, OracleRouter, Generalized4626Strategy } from "../typechain-types";
-import { addresses } from "./addresses";
+import { VaultCore, BentoUSD, OracleRouter, Generalized4626Strategy } from "../../typechain-types";
+import { addresses } from "../addresses";
 
 async function main() {
   // Configuration flags
@@ -15,9 +15,9 @@ async function main() {
   const owner = signer.address;
 
   // Contract addresses
-  const vaultAddress = "0x1f26Cb844f42690b368f99D3d6C75DBe205f7732";
-  const bentoUSDAddress = "0x0d34325E9357908C00240d08380d82a79a60a2a4";
-  const oracleRouterAddress = "0x0A7383cc00E2b886a65e024CD1B3dC99A601B858";
+  const vaultAddress = "0xC98F51755976811c1D71d895DA2A73b46Dfbc918";
+  const bentoUSDAddress = "0x8FDE145B1289a99C6B15f363309d3cc9276c0b16";
+  const oracleRouterAddress = "0xE82E67F347826a9ADb4bdFD1294126593d933722";
 
   // Asset addresses from your Addresses.sol equivalent
   const DAIAddress = addresses.mainnet.DAI;

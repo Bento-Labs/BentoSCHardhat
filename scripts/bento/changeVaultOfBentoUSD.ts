@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { BentoUSD } from "../typechain-types";
+import { BentoUSD } from "../../typechain-types";
 
 async function main() {
   // Load deployed BentoUSD address

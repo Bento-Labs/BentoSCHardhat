@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
-import { VaultCore, BentoUSD, OracleRouter, IERC4626, VaultInspector } from "../typechain-types";
-
+import { VaultCore, BentoUSD, OracleRouter, IERC4626, VaultInspector } from "../../typechain-types";
+// script to call the function 
 async function main() {
   // Get signer
   const [signer] = await ethers.getSigners();
@@ -67,11 +67,11 @@ async function main() {
 
 
     // Execute redemption
-    console.log("Redeeming BentoUSD for liquid staking tokens...");
-    const tx = await vault.redeemLTBasket(signer.address, redeemAmount, {gasLimit: 2_000_000});
+    console.log("Redeeming BentoUSD for underlying tokens...");
+    const tx = await vault.redeemUnderlyingBasket(signer.address, redeemAmount, {gasLimit: 2_000_000});
     await tx.wait();
     
-    console.log("Successfully redeemed BentoUSD for liquid staking tokens!");
+    console.log("Successfully redeemed BentoUSD for underlying tokens!");
 
   } catch (error) {
     console.error("Error redeeming LTs:", error);

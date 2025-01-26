@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { VaultCore, UpgradableProxy } from "../typechain-types";
+import { VaultCore, UpgradableProxy } from "../../typechain-types";
 
 async function main() {
   // Configuration flags

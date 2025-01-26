@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
-import { VaultCore, VaultInspector } from "../typechain-types";
-import { IERC20Metadata } from "../typechain-types";
+import { VaultCore, VaultInspector } from "../../typechain-types";
+import { IERC20Metadata } from "../../typechain-types";
 async function main() {
   // Get signer
   const [signer] = await ethers.getSigners();
