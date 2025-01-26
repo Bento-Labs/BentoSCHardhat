@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.27;
 
 /**
  * @title bentoToken VaultAdmin contract
  * @notice The VaultAdmin contract makes configuration and admin calls on the vault.
- * @author Le Anh Dung
+ * @dev This contract is responsible for managing assets and configurations within the vault.
+ * It includes functions to set oracle routers, manage assets, and update weights.
+ * Only the governor can execute these functions.
+ * 
+ * Author: Le Anh Dung
  */
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {StableMath} from "../utils/StableMath.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
@@ -18,7 +21,6 @@ import {AssetInfo, StrategyType} from "./VaultDefinitions.sol";
 
 contract VaultAdmin is VaultStorage {
     using SafeERC20 for IERC20;
-    using StableMath for uint256;
 
     event AssetAdded(address indexed asset, uint32 weight);
     event AssetRemoved(address indexed asset);
@@ -42,22 +44,31 @@ contract VaultAdmin is VaultStorage {
         oracleRouter = _oracleRouter;
     }
 
+    /**
+     * @notice Set the address of BentoUSD.
+     * @param _bentoUSD Address of BentoUSD
+     */
     function setBentoUSD(address _bentoUSD) external onlyGovernor {
         bentoUSD = _bentoUSD;
     }
 
+    /**
+     * @notice Set the address of BentoUSDPlus.
+     * @param _bentoUSDPlus Address of BentoUSDPlus
+     */
     function setBentoUSDPlus(address _bentoUSDPlus) external onlyGovernor {
         bentoUSDPlus = _bentoUSDPlus;
     }
 
-    /* setAsset is used to add a new asset to the vault.
-     *  _asset: the address of the asset
-     *  _decimals: the number of decimals of the asset
-     *  _weight: the weight of the asset
-     *  _ltToken: the address of the underlying token
-     *  _strategyType: the type of the strategy
-     *  _strategy: the address of the strategy
-     *  _minimalAmountInVault: the minimal amount of the asset in the vault
+    /**
+     * @notice Add a new asset to the vault.
+     * @param _asset The address of the asset
+     * @param _decimals The number of decimals of the asset
+     * @param _weight The weight of the asset
+     * @param _ltToken The address of the underlying token
+     * @param _strategyType The type of the strategy
+     * @param _strategy The address of the strategy
+     * @param _minimalAmountInVault The minimal amount of the asset in the vault
      */
     function setAsset(
         address _asset,
@@ -113,15 +124,17 @@ contract VaultAdmin is VaultStorage {
         emit AssetAdded(_asset, _weight);
     }
 
-    /* removeAsset is used to remove an asset from the vault.
-     *  _asset: the address of the asset
+    /**
+     * @notice Remove an asset from the vault.
+     * @param _asset The address of the asset
      */
     function removeAsset(address _asset) external onlyGovernor {
         if (assetToAssetInfo[_asset].ltToken == address(0)) {
             revert ZeroAddress();
         }
         _changeAssetWeight(_asset, assetToAssetInfo[_asset].weight, 0);
-        for (uint256 i = 0; i < allAssets.length; i++) {
+        uint256 allAssetsLength = allAssets.length;
+        for (uint256 i; i < allAssetsLength; ++i) {
             if (allAssets[i] == _asset) {
                 allAssets[i] = allAssets[allAssets.length - 1];
                 // since we move the last element to the current position, we need to update the index of the new last element
@@ -133,10 +146,11 @@ contract VaultAdmin is VaultStorage {
         emit AssetRemoved(_asset);
     }
 
-    /* _changeAssetWeight is used to change the weight of an asset and also the totalWeight of all assets.
-     *  _asset: the address of the asset
-     *  _oldWeight: the old weight of the asset
-     *  _newWeight: the new weight of the asset
+    /**
+     * @notice Change the weight of an asset and update the total weight of all assets.
+     * @param _asset The address of the asset
+     * @param _oldWeight The old weight of the asset
+     * @param _newWeight The new weight of the asset
      */
     function _changeAssetWeight(
         address _asset,

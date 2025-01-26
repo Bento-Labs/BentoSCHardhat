@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity 0.8.27;
 
 import {OFT} from "@layerzerolabs/solidity-examples/contracts/token/oft/v1/OFT.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Errors} from "./utils/Errors.sol";
 
-contract BentoUSD is Ownable, OFT {
+contract BentoUSD is Ownable, OFT, Errors {
     address public bentoUSDVault;
     constructor(
         string memory _name,
@@ -15,14 +16,18 @@ contract BentoUSD is Ownable, OFT {
         // Any additional initialization logic
     }
 
-    // for mainnet we will need to remove the minting right from owner.
+    // TODO: for mainnet we will need to remove the minting right from owner.
     function mint(address _to, uint256 _amount) public {
-        require(msg.sender == bentoUSDVault || msg.sender == owner(), "BentoUSD: only bentoUSDVault or owner can mint");
+        if (msg.sender != bentoUSDVault && msg.sender != owner()) {
+            revert Unauthorized();
+        }
         _mint(_to, _amount);
     }
 
     function burn(address _from, uint256 _amount) public {
-        require(msg.sender == bentoUSDVault || msg.sender == owner(), "BentoUSD: only bentoUSDVault or owner can burn");
+        if (msg.sender != bentoUSDVault && msg.sender != owner()) {
+            revert Unauthorized();
+        }
         _burn(_from, _amount);
     }
 
