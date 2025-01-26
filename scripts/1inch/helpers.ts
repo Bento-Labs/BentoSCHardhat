@@ -1,4 +1,4 @@
-const axios = require("axios");
+/* const axios = require("axios");
 const { defaultAbiCoder, formatUnits } = require("ethers/lib/utils");
 
 const addresses = require("./addresses");
@@ -8,7 +8,7 @@ const ONEINCH_API_ENDPOINT = "https://api.1inch.dev/swap/v5.2/1/swap";
 const ONEINCH_API_KEY = process.env.ONEINCH_API_KEY;
 const SWAP_SELECTOR = "0x12aa3caf"; // swap(address,(address,address,address,address,uint256,uint256,uint256),bytes,bytes)
 const UNISWAP_SELECTOR = "0xf78dc253"; // unoswapTo(address,address,uint256,uint256,uint256[])
-const UNISWAPV3_SELECTOR = "0xbc80f1a8"; // uniswapV3SwapTo(address,uint256,uint256,uint256[])
+const UNISWAPV3_SELECTOR = "0xbc80f1a8"; // uniswapV3SwapTo(address,uint256,uint256,uint256[]) */
 
 /**
  * Re-encodes the 1Inch swap data to be used by the vault's swapper.
@@ -18,7 +18,7 @@ const UNISWAPV3_SELECTOR = "0xbc80f1a8"; // uniswapV3SwapTo(address,uint256,uint
  * @param {string} apiEncodedData tx.data from 1inch's /v5.0/1/swap API
  * @returns {string} RLP encoded data for the Vault's `swapCollateral` function
  */
-const recodeSwapData = async (apiEncodedData) => {
+/* const recodeSwapData = async (apiEncodedData) => {
   try {
     const c1InchRouter = await ethers.getContractAt(
       "IOneInchRouter",
@@ -63,7 +63,7 @@ const recodeSwapData = async (apiEncodedData) => {
       cause: err,
     });
   }
-};
+}; */
 
 /**
  * Gets the tx.data in the response of 1inch's V5 swap API
@@ -148,14 +148,14 @@ module.exports = {
 }; */
 
 
-/* export function getSwapTx(from: string, to: string, inToken: string, outToken: string, amount: number, slippage: number) {
+export function getSwapTx(from: string, to: string, inToken: string, outToken: string, amount: number, slippage: number) {
 
-    const tokens = process.env.ONEINCH_API_KEYS.split(",");
-    const headers = get1inchHeaders(tokens);
+    const token = process.env.BENTO_ONE_INCH_API_KEY || "";
+    const headers = get1inchHeaders(token);
     const swpParams = {
       src: inToken,
       dst: outToken,
-      amount: amount,
+      amount: amount.toString(),
       from: from,
       receiver: to,
       slippage: Number(slippage) / 10000,
@@ -169,12 +169,12 @@ module.exports = {
     return fetch(url, headers);
   }
     export function getQuote(inToken: string, outToken: string, amount: number) {
-        const tokens = process.env.ONEINCH_API_KEYS?.split(",") || [];
-        const headers = get1inchHeaders(tokens);
+        const token = process.env.BENTO_ONE_INCH_API_KEY || "";
+        const headers = get1inchHeaders(token);
         const quoteParams = {
             src: inToken,
             dst: outToken,
-            amount: amount
+            amount: amount.toString()
         };
 
         console.log(`quoteParams ${quoteParams}`);
@@ -184,10 +184,10 @@ module.exports = {
     }
 
 
-    function get1inchHeaders(tokens: string[]) {
+    function get1inchHeaders(token: string) {
         return {
             headers: {
-                Authorization: `Bearer ${tokens[getRandomInt(tokens.length)]}`,
+                Authorization: `Bearer ${token}`,
                 accept: "application/json",
             },
         };
@@ -204,4 +204,3 @@ module.exports = {
   function getRandomInt(max: number) {
     return Math.floor(Math.random() * max);
   }
-   */

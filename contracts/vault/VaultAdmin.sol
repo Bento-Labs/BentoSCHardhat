@@ -130,7 +130,7 @@ contract VaultAdmin is VaultStorage {
      */
     function removeAsset(address _asset) external onlyGovernor {
         if (assetToAssetInfo[_asset].ltToken == address(0)) {
-            revert ZeroAddress();
+            revert NotSupported();
         }
         _changeAssetWeight(_asset, assetToAssetInfo[_asset].weight, 0);
         uint256 allAssetsLength = allAssets.length;
