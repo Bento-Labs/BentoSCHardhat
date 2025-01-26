@@ -26,6 +26,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     using SafeERC20 for IERC20;
     using Math for uint256;
     uint256 public constant deviationTolerance = 100; // in BPS
+    uint256 public constant ratioDeviationUpperTolerance = 101;
+    uint256 public constant ratioDeviationLowerTolerance = 99;
+    uint256 public constant ratioDeviationToleranceDenominator = 100;
     uint256 constant ONE = 1e18;
 
     event Swap(
@@ -60,8 +63,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
      * @notice Mints BentoUSD tokens in exchange for a single supported asset
      * @param _recipient Address to receive minted BentoUSD
      * @param _asset Address of the input asset
-     * @param _amount Amount of input asset to deposit
-     * @param _minimumBentoUSDAmount Minimum acceptable BentoUSD output
+     * @param _amount Desired amount of BentoUSD that we want to receive
+     * @param _minimumBentoUSDAmount Minimal acceptable BentoUSD output amount
      * @param _routers Array of DEX router addresses for swaps
      * @param _routerData Encoded swap data for each router
      */
@@ -87,10 +90,12 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256 _totalWeight = totalWeight;
 
         // track the total value of the basket
-        uint256 totalValueOfBasket = 0;
+        uint256 bentoUSDMintAmount = 0;
         uint256 allAssetsLength = allAssets.length;
+        uint256[] memory outputAmounts = new uint256[](allAssetsLength);
+        uint256[] memory scaledOutputAmounts = new uint256[](allAssetsLength);
         // we iterate through all assets
-        for (uint256 i = 0; i < allAssetsLength; i++) {
+        for (uint256 i; i < allAssetsLength; i++) {
             address assetAddress = allAssets[i];
             // we only trade into assets that are not the asset we are depositing
             if (assetAddress != _asset) {
@@ -106,32 +111,44 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                     address(this)
                 );
                 // get the amount of asset that is not in the balance after the trade
-                uint256 outputAmount = balanceAfter - balanceBefore;
+                outputAmounts[i] = balanceAfter - balanceBefore;
                 emit Swap(
                     _asset,
                     assetAddress,
                     _routers[i],
-                    outputAmount
+                    outputAmounts[i]
                 );
-
-                totalValueOfBasket += (outputAmount * assetPrice) / 1e18;
-                                // get asset price from oracle
                 uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
                 if (assetPrice > ONE) {
                     assetPrice = ONE;
                 }
+                bentoUSDMintAmount += (outputAmounts[i] * assetPrice) / ONE;
+                scaledOutputAmounts[i] = outputAmounts[i] / asset.weight;
             } else {
                 uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-                totalValueOfBasket += (_amount * assetPrice) / 1e18;
+                outputAmounts[i] = uint256(_routerData[i]);
+                bentoUSDMintAmount += (outputAmounts[i] * assetPrice) / ONE;
+                scaledOutputAmounts[i] = outputAmounts[i] / asset.weight;
             }
         }
+        // we check that the output amounts are in the correct ratio
+        for (uint256 i = 1; i < allAssetsLength; i++) {
+            uint256 deviationRatio = scaledOutputAmounts[i].mulDiv(ratioDeviationToleranceDenominator, scaledOutputAmounts[0], Math.Rounding.Down);
+            if (deviationRatio > ratioDeviationUpperTolerance || deviationRatio < ratioDeviationLowerTolerance) {
+                revert Inconsistency();
+            }
+        }
+        if (bentoUSDMintAmount < _minimumBentoUSDAmount) {
+            revert SlippageTooHigh();
+        }
+        BentoUSD(bentoUSD).mint(_recipient, bentoUSDMintAmount);
     }
 
     /**
      * @notice Mints BentoUSD by depositing a proportional basket of all supported assets
      * @param _recipient Address to receive minted BentoUSD
-     * @param _amount Total USD value to deposit
-     * @param _minimumBentoUSDAmount Minimum acceptable BentoUSD output
+     * @param _amount the desired amount of BentoUSD that we want to receive
+     * @param _minimumBentoUSDAmount Minimal acceptable BentoUSD output amount
      */
     function mintBasket(
         address _recipient,
@@ -284,6 +301,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
             }
         }
 
+    function _swap(address _router, bytes calldata _routerData) internal {
+        // TODO: implement the swap logic
+    }
     // === Public/External View Functions ===
 
     /**
