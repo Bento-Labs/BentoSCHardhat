@@ -76,6 +76,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         address[] calldata _routers,
         bytes[] calldata _routerData
     ) external {
+        // even though only whitelisted routers are allowed, there is no check on routerData, we need to check that there is no possible exploit here.
         if (assetToAssetInfo[_asset].ltToken == address(0)) {
             revert NotSupported();
         }
@@ -97,9 +98,9 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         // we iterate through all assets
         for (uint256 i; i < allAssetsLength; i++) {
             address assetAddress = allAssets[i];
+            AssetInfo memory asset = assetToAssetInfo[assetAddress];
             // we only trade into assets that are not the asset we are depositing
             if (assetAddress != _asset) {
-                AssetInfo memory asset = assetToAssetInfo[assetAddress];
                 // get the balance of the asset before the trade
                 uint256 balanceBefore = IERC20(assetAddress).balanceOf(
                     address(this)
@@ -126,7 +127,7 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                 scaledOutputAmounts[i] = outputAmounts[i] / asset.weight;
             } else {
                 uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-                outputAmounts[i] = uint256(_routerData[i]);
+                outputAmounts[i] = uint256(uint160(_routers[i]));
                 bentoUSDMintAmount += (outputAmounts[i] * assetPrice) / ONE;
                 scaledOutputAmounts[i] = outputAmounts[i] / asset.weight;
             }
@@ -302,7 +303,22 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         }
 
     function _swap(address _router, bytes calldata _routerData) internal {
-        // TODO: implement the swap logic
+        if (!routerWhitelist[_router]) {
+            revert RouterNotWhitelisted();
+        }
+        (bool success, bytes memory returnData) = _router.call(_routerData);
+        if (!success) {
+            // Decode the revert reason and revert with it
+            if (returnData.length > 0) {
+                // The call reverted with a reason or a custom error
+                assembly {
+                    let returndata_size := mload(returnData)
+                    revert(add(32, returnData), returndata_size)
+                }
+            } else {
+                revert SwapFailed("Swap failed without a reason");
+            }
+        }
     }
     // === Public/External View Functions ===
 

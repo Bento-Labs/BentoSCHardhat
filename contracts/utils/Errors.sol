@@ -10,4 +10,5 @@ contract Errors {
     error StalePrice();
     error SlippageTooHigh();
     error InsufficientBalance();
+    error RouterNotWhitelisted();
 }

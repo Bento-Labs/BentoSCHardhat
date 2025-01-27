@@ -146,6 +146,14 @@ contract VaultAdmin is VaultStorage {
         emit AssetRemoved(_asset);
     }
 
+    function whitelistRouter(address _router) external onlyGovernor {
+        routerWhitelist[_router] = true;
+    }
+
+    function blacklistRouter(address _router) external onlyGovernor {
+        routerWhitelist[_router] = false;
+    }
+
     /**
      * @notice Change the weight of an asset and update the total weight of all assets.
      * @param _asset The address of the asset

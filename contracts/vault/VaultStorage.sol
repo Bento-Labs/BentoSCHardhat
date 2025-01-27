@@ -32,6 +32,7 @@ contract VaultStorage is Errors {
     /// @dev List of all assets supported by the vault.
     // slither-disable-next-line uninitialized-state
     address[] public allAssets;
+    mapping(address => bool) public routerWhitelist;
 
     function getAssetInfos() public view returns (AssetInfo[] memory) {
         AssetInfo[] memory _assets = new AssetInfo[](allAssets.length);
