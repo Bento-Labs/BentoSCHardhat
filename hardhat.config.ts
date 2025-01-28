@@ -2,8 +2,10 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-foundry";
 import * as tdly from "@tenderly/hardhat-tenderly";
+import "hardhat-contract-sizer";
 
-/* tdly.setup({ automaticVerifications: true }); */
+
+tdly.setup({ automaticVerifications: true });
 
 
 const config: HardhatUserConfig = {

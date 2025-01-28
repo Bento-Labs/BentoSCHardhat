@@ -8,6 +8,7 @@ async function main() {
   const setOracleRouter = true;
   const setAssets = true;
   const setAssetPriceFeeds = true;
+  const setRouterWhitelist = true;
   const setLTToken = false;
 
   // Get signer
@@ -15,9 +16,10 @@ async function main() {
   const owner = signer.address;
 
   // Contract addresses
-  const vaultAddress = "0xC98F51755976811c1D71d895DA2A73b46Dfbc918";
-  const bentoUSDAddress = "0x8FDE145B1289a99C6B15f363309d3cc9276c0b16";
-  const oracleRouterAddress = "0xE82E67F347826a9ADb4bdFD1294126593d933722";
+  const vaultAddress = "0xfc5e87A876f0e1d46f00f201F459c390826f35E2";
+  const bentoUSDAddress = "0xfeD4BB1f4Ce7C74e23BE2B968E2962431726d4f3";
+  const oracleRouterAddress = "0xf5352822A2Ec6F3E40308EaD9E8d9AB740f9ac9C";
+  const oneInchV6Router = addresses.mainnet.ONE_INCH_AGGREGATION_ROUTER_V6;
 
   // Asset addresses from your Addresses.sol equivalent
   const DAIAddress = addresses.mainnet.DAI;
@@ -149,6 +151,10 @@ async function main() {
     USDT: ethers.ZeroAddress,
     USDe: ethers.ZeroAddress
   };
+
+  if (setRouterWhitelist) {
+    await vault.whitelistRouter(oneInchV6Router);
+  }
 
   if (setLTToken) {
     const vaultAssets = await vault.getAssets();

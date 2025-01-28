@@ -105,7 +105,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                 uint256 balanceBefore = IERC20(assetAddress).balanceOf(
                     address(this)
                 );
-
+                // we need to approve the router by the amount
+                IERC20(assetAddress).safeApprove(_routers[i], _amount);
                 _swap(_routers[i], _routerData[i]);
                 // get the balance of the asset after the trade
                 uint256 balanceAfter = IERC20(assetAddress).balanceOf(
