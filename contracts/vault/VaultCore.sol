@@ -95,6 +95,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         uint256 allAssetsLength = allAssets.length;
         uint256[] memory outputAmounts = new uint256[](allAssetsLength);
         uint256[] memory scaledOutputAmounts = new uint256[](allAssetsLength);
+        // we deposit the asset into the vault
+        IERC20(_asset).safeTransferFrom(msg.sender, address(this), _amount);
         // we iterate through all assets
         for (uint256 i; i < allAssetsLength; i++) {
             address assetAddress = allAssets[i];
@@ -106,7 +108,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                     address(this)
                 );
                 // we need to approve the router by the amount
-                IERC20(assetAddress).safeApprove(_routers[i], _amount);
+                // TODO: do we need to nullify the allowance in the end of the process to prevent possible vulnerbility of the external routers?
+                IERC20(_asset).safeIncreaseAllowance(_routers[i], _amount);
                 _swap(_routers[i], _routerData[i]);
                 // get the balance of the asset after the trade
                 uint256 balanceAfter = IERC20(assetAddress).balanceOf(

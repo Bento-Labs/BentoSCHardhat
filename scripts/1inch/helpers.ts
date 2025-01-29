@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
+import { addresses } from "../addresses";
 
-export function recodeSwapData(apiEncodedData: string) {
+export async function decodeSwapData(apiEncodedData: string) {
     try {
         const c1InchRouter = await ethers.getContractAt(
             "IOneInchRouter",
@@ -27,7 +28,7 @@ export function getSwapTx(from: string, to: string, inToken: string, outToken: s
       amount: amount.toString(),
       from: from,
       receiver: to,
-      slippage: Number(slippage) / 10000,
+      slippage: slippage.toString(),
       disableEstimate: true,
       allowPartialFill: false,
     };
@@ -65,6 +66,29 @@ export function getSwapTx(from: string, to: string, inToken: string, outToken: s
       apiBaseUrl + methodName + "?" + new URLSearchParams(queryParams).toString()
     );
   }
+
+  export function changeSlippagePercentage(decodedSwapData: any, slippagePercentage: number) {
+    const amount = (decodedSwapData.args[1])[4];
+    
+    // Create a new mutable array by copying the original
+    const newArgs = [...decodedSwapData.args[1]];
+    // Modify the copy instead of the original
+    newArgs[5] = amount * BigInt(100 - slippagePercentage) / BigInt(100);
+    
+    // Create a new object with the modified array
+    const newDecodedSwapData = {
+        ...decodedSwapData,
+        args: [decodedSwapData.args[0], newArgs, decodedSwapData.args[2]]
+    };
+    
+    return newDecodedSwapData;
+  }
+
+  export function getInputData (functionSig: string, functionName: string, args: any) {
+    let ABI = [functionSig];
+    let iface = new ethers.Interface(ABI);
+    return iface.encodeFunctionData(functionName, args);
+}
   
   function getRandomInt(max: number) {
     return Math.floor(Math.random() * max);

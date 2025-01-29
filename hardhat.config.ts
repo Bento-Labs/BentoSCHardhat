@@ -5,7 +5,7 @@ import * as tdly from "@tenderly/hardhat-tenderly";
 import "hardhat-contract-sizer";
 
 
-tdly.setup({ automaticVerifications: true });
+/* tdly.setup({ automaticVerifications: true }); */
 
 
 const config: HardhatUserConfig = {
