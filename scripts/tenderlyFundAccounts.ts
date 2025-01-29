@@ -16,12 +16,16 @@ async function main() {
         addresses.mainnet.USDe
     ];
 
+    const currentRpc = hre.network.config.url;
+    console.log(`current rpc is`);
+    console.log(currentRpc);
+
     // Prepare accounts array for JSON
     const accountsJson = accounts.map(account => `"${account}"`).join(",");
 
     // Fund native ETH first
     console.log("\nFunding ETH:");
-    const ethCommand = `curl -s $TenderlyMainnetRPC \
+    const ethCommand = `curl -s ${currentRpc} \
         -X POST \
         -H 'Content-Type: application/json' \
         -d '{
@@ -44,7 +48,7 @@ async function main() {
     // Fund ERC20 tokens
     for (const token of tokens) {
         console.log("\nFunding token:", token);
-        const tokenCommand = `curl -s $TenderlyMainnetRPC \
+        const tokenCommand = `curl -s ${currentRpc} \
             -X POST \
             -H 'Content-Type: application/json' \
             -d '{

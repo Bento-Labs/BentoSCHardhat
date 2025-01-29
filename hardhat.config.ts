@@ -5,7 +5,7 @@ import * as tdly from "@tenderly/hardhat-tenderly";
 import "hardhat-contract-sizer";
 
 
-/* tdly.setup({ automaticVerifications: true }); */
+tdly.setup({ automaticVerifications: true });
 
 
 const config: HardhatUserConfig = {
@@ -25,7 +25,7 @@ const config: HardhatUserConfig = {
     networks: {
         hardhat: {
             forking: {
-                url: process.env.TenderlyMainnetRPC || "",
+                url: process.env.TenderlyMainnetRPC2 || "",
                 blockNumber: 21552974,
             },
             chains: {
@@ -37,7 +37,7 @@ const config: HardhatUserConfig = {
             },
         },
         tenderlyMainnetFork: {
-            url: process.env.TenderlyMainnetRPC,
+            url: process.env.TenderlyMainnetRPC2,
             accounts: [process.env.BentoMainnetDeployerPrivateKey || ""],
         }
     },

@@ -26,8 +26,8 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
     using SafeERC20 for IERC20;
     using Math for uint256;
     uint256 public constant deviationTolerance = 100; // in BPS
-    uint256 public constant ratioDeviationUpperTolerance = 101;
-    uint256 public constant ratioDeviationLowerTolerance = 99;
+    uint256 public constant ratioDeviationUpperTolerance = 110;
+    uint256 public constant ratioDeviationLowerTolerance = 90;
     uint256 public constant ratioDeviationToleranceDenominator = 100;
     uint256 constant ONE = 1e18;
 
@@ -93,7 +93,6 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
         // track the total value of the basket
         uint256 bentoUSDMintAmount = 0;
         uint256 allAssetsLength = allAssets.length;
-        uint256[] memory outputAmounts = new uint256[](allAssetsLength);
         uint256[] memory scaledOutputAmounts = new uint256[](allAssetsLength);
         // we deposit the asset into the vault
         IERC20(_asset).safeTransferFrom(msg.sender, address(this), _amount);
@@ -116,31 +115,32 @@ contract VaultCore is Initializable, VaultAdmin, EthenaWalletProxyManager {
                     address(this)
                 );
                 // get the amount of asset that is not in the balance after the trade
-                outputAmounts[i] = balanceAfter - balanceBefore;
+                uint256 outputAmount = balanceAfter - balanceBefore;
+                uint256 outputAmountNormalized = scaleDecimals(outputAmount, IERC20Metadata(assetAddress).decimals(), 18);
+            
                 emit Swap(
                     _asset,
                     assetAddress,
                     _routers[i],
-                    outputAmounts[i]
+                    outputAmount
                 );
-                uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-                if (assetPrice > ONE) {
-                    assetPrice = ONE;
-                }
-                bentoUSDMintAmount += (outputAmounts[i] * assetPrice) / ONE;
-                scaledOutputAmounts[i] = outputAmounts[i] / asset.weight;
+                // TODO: fix the decimals mismatch here
+                uint256 assetPrice = adjustPrice(IOracle(oracleRouter).price(assetAddress), false);
+
+                bentoUSDMintAmount += (outputAmountNormalized * assetPrice) / ONE;
+                scaledOutputAmounts[i] = outputAmountNormalized / asset.weight;
             } else {
                 uint256 assetPrice = IOracle(oracleRouter).price(assetAddress);
-                outputAmounts[i] = uint256(uint160(_routers[i]));
-                bentoUSDMintAmount += (outputAmounts[i] * assetPrice) / ONE;
-                scaledOutputAmounts[i] = outputAmounts[i] / asset.weight;
+                uint256 outputAmountNormalized = scaleDecimals(uint256(uint160(_routers[i])), IERC20Metadata(assetAddress).decimals(), 18);
+                bentoUSDMintAmount += (outputAmountNormalized * assetPrice) / ONE;
+                scaledOutputAmounts[i] = outputAmountNormalized / asset.weight;
             }
         }
         // we check that the output amounts are in the correct ratio
         for (uint256 i = 1; i < allAssetsLength; i++) {
             uint256 deviationRatio = scaledOutputAmounts[i].mulDiv(ratioDeviationToleranceDenominator, scaledOutputAmounts[0], Math.Rounding.Down);
             if (deviationRatio > ratioDeviationUpperTolerance || deviationRatio < ratioDeviationLowerTolerance) {
-                revert Inconsistency();
+                revert Inconsistency2(scaledOutputAmounts[i], scaledOutputAmounts[0], assetToAssetInfo[allAssets[i]].weight, assetToAssetInfo[allAssets[0]].weight);
             }
         }
         if (bentoUSDMintAmount < _minimumBentoUSDAmount) {

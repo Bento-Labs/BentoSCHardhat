@@ -5,6 +5,7 @@ contract Errors {
     error ZeroAddress();
     error ZeroAmount();
     error Inconsistency();
+    error Inconsistency2(uint256, uint256, uint256, uint256);
     error DefaultValueRequired();
     error NotSupported();
     error StalePrice();

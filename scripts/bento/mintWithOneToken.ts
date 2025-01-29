@@ -8,8 +8,8 @@ async function main() {
   console.log("Signer address:", signer.address);
 
   // Get the VaultCore contract instance
-  const vaultAddress = "0xfc5e87A876f0e1d46f00f201F459c390826f35E2";
-  const vaultInspectorAddress = "0x9776204ab81052E370eA0271c836F1E0011Aa40c";
+  const vaultAddress = "0x6ae08082387AaBcA74830054B1f3ba8a0571F9c6";
+  const vaultInspectorAddress = "0x8FDE145B1289a99C6B15f363309d3cc9276c0b16";
   const vaultInspector = await ethers.getContractAt("VaultInspector", vaultInspectorAddress) as VaultInspector;
   const depositAssetAddress = addresses.mainnet.USDC;
   const depositAsset = await ethers.getContractAt("IERC20Metadata", depositAssetAddress);
